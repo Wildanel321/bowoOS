@@ -1,0 +1,44 @@
+#!/bin/bash
+# ==============================================================================
+# Lite Office OS — Session & Power Control Dialog
+# ==============================================================================
+set -eu
+
+ACTION=""
+if which zenity >/dev/null 2>&1; then
+    ACTION=$(zenity --list --title="Lite Office OS — Power Control" \
+        --width=320 --height=260 \
+        --column="Action" --column="Description" \
+        "Logout" "Exit current desktop session" \
+        "Reboot" "Restart the computer" \
+        "Poweroff" "Completely shut down the computer" \
+        "Cancel" "Return to desktop" \
+        --hide-column=0 --print-column=1 2>/dev/null || echo "Cancel")
+else
+    # Fallback to simple console read if zenity is absent
+    echo "1) Logout"
+    echo "2) Reboot"
+    echo "3) Poweroff"
+    read -r -p "Select action: " num
+    case "$num" in
+        1) ACTION="Logout" ;;
+        2) ACTION="Reboot" ;;
+        3) ACTION="Poweroff" ;;
+        *) ACTION="Cancel" ;;
+    esac
+fi
+
+case "$ACTION" in
+    Logout)
+        openbox --exit || pkill -u "$USER" openbox || true
+        ;;
+    Reboot)
+        sudo /sbin/reboot || sudo reboot
+        ;;
+    Poweroff)
+        sudo /sbin/poweroff || sudo poweroff
+        ;;
+    *)
+        exit 0
+        ;;
+esac

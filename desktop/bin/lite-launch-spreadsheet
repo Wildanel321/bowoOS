@@ -1,0 +1,26 @@
+#!/bin/bash
+# ==============================================================================
+# Lite Office OS — Adaptive Spreadsheet Launcher
+# Launches Gnumeric on 512 MB systems or LibreOffice Calc on >= 1 GB systems
+# ==============================================================================
+set -eu
+
+TIER="512m"
+if [ -f /etc/lite-profile ]; then
+    . /etc/lite-profile
+    TIER="${LITE_TIER:-512m}"
+fi
+
+if [ "$TIER" = "512m" ]; then
+    if which gnumeric >/dev/null 2>&1; then
+        exec gnumeric "$@"
+    else
+        echo "Spreadsheet software (Gnumeric) is being provisioned."
+    fi
+else
+    if which libreoffice >/dev/null 2>&1; then
+        exec libreoffice --calc "$@"
+    elif which gnumeric >/dev/null 2>&1; then
+        exec gnumeric "$@"
+    fi
+fi

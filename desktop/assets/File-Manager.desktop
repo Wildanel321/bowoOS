@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=My Files
+Comment=Browse folders and storage
+Exec=pcmanfm /home/liteuser
+Icon=system-file-manager
+Terminal=false
+Categories=System;FileManager;

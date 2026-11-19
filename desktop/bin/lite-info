@@ -1,0 +1,37 @@
+#!/bin/bash
+# ==============================================================================
+# Lite Office OS — Hardware Profile & Memory Diagnostics Viewer
+# ==============================================================================
+set -eu
+
+KERNEL=$(uname -sr)
+UPTIME=$(uptime -p 2>/dev/null || uptime)
+MEM_INFO=$(free -m)
+SWAP_INFO=$(cat /proc/swaps 2>/dev/null || echo "No swap")
+
+TIER="Unknown"
+if [ -f /etc/lite-profile ]; then
+    . /etc/lite-profile
+    TIER="${LITE_TIER:-512m}"
+fi
+
+MSG="==========================================
+  Lite Office OS — System Diagnostics
+==========================================
+
+Kernel: $KERNEL
+Uptime: $UPTIME
+Hardware Profile Tier: $TIER
+
+Memory Status (MB):
+$MEM_INFO
+
+Swap & ZRAM Allocations:
+$SWAP_INFO
+=========================================="
+
+if which zenity >/dev/null 2>&1 && [ -n "${DISPLAY:-}" ]; then
+    zenity --info --title="Lite Office OS — Hardware & Memory Profile" --text="$MSG" --width=450
+else
+    echo "$MSG"
+fi

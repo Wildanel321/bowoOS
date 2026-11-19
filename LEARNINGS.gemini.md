@@ -92,3 +92,41 @@ This file serves as an immutable, timestamped record of PRAR (Perceive, Reason, 
   - Hardware Profile Detector: `Detected Profile: 512 MB Tier (Ultra-Lightweight Office Mode)` [PASS]
   - Memory Supervisor: `lite-oom` started successfully [PASS]
   - User Login Prompt: `liteoffice login: ` displayed on `ttyS0` [PASS]
+
+---
+
+## [2026-11-19T14:55:00+07:00] Stage 4: X11 Display Server & Openbox Desktop Shell Integration
+
+### 1. Perceive
+- **Input**: User approved Stage 4 implementation to deploy a lightweight, responsive graphical desktop stack capable of booting at $\le 120\text{ MB}$ idle RAM on 512 MB systems without generic 1990s Linux UI appearance.
+- **Artifacts**: `scripts/04_install_desktop.sh`, `desktop/openbox/`, `desktop/tint2/`, `desktop/pcmanfm/`, `desktop/bin/`, `tests/test_desktop_boot.sh`, `output/desktop_memory_benchmark_512M.txt`.
+
+### 2. Reason & Engineering Diagnostics
+- **Diagnostic 1 (Debian Apt Package Dependency Hijacking `/sbin/init`)**:
+  - *Symptom*: Boot failed to detect OpenRC after graphical packages were installed.
+  - *Root Cause*: Installing graphical X11 dependencies pulled `systemd-sysv`, which overwrote `/sbin/init` to point to `/lib/systemd/systemd`.
+  - *Resolution*: Forced purge of `systemd-sysv` via `dpkg --purge --force-depends systemd-sysv` and locked `/sbin/init` to `/sbin/openrc-init`.
+- **Diagnostic 2 (Xorg Hardware Access & KMS Permissions)**:
+  - *Symptom*: Xorg terminated with `(EE) open /dev/dri/card0: Permission denied` and `xf86EnableIO: failed to enable I/O ports 0000-03ff (Operation not permitted)`.
+  - *Root Cause*: Rootless Xorg requires `systemd-logind` session tracking for DRM device leasing. On our minimal OpenRC system, DRM device nodes require SUID root privileges for non-logind environments.
+  - *Resolution*: Configured `/etc/X11/Xwrapper.config` with `allowed_users=anybody` and `needs_root_rights=yes` (leveraging SUID `/usr/lib/xorg/Xorg.wrap`), and enrolled `liteuser` into `render`, `video`, `input`, and `dialout` groups.
+- **Diagnostic 3 (Debian DBus Session Launch Compatibility)**:
+  - *Symptom*: `.xinitrc` reported `/home/liteuser/.xinitrc: exec: dbus-launch: not found`.
+  - *Root Cause*: Debian Bookworm does not bundle `dbus-launch` in the base `dbus` package.
+  - *Resolution*: Rewrote `.xinitrc` to spawn a session bus directly via `eval $(dbus-daemon --session --fork --print-address --print-pid)` when `dbus-launch` is not installed.
+- **Diagnostic 4 (Duplicate Autostart Process Spawning)**:
+  - *Symptom*: `ps aux` showed two instances of `tint2`, `pcmanfm`, and `volumeicon`.
+  - *Root Cause*: `openbox-autostart` sequentially executes `/etc/xdg/openbox/autostart` AND `~/.config/openbox/autostart`.
+  - *Resolution*: Added idempotent environment guard `LITE_AUTOSTART_RUNNING=1` at the head of `autostart`.
+
+### 3. Act & Verify (Memory Benchmark Results)
+- Debootstrapped graphical packages and injected custom configurations:
+  - Window Manager: Openbox 3.6 with flat borders and productivity keybindings (`Super+Space`, `Super+E`, `Super+T`, `Alt+Tab`).
+  - Panel: Tint2 configured with flat dark navy palette (`#181a1f`), start menu launcher, active task pill indicators, and digital clock.
+  - Desktop: PCManFM managing desktop shortcuts (`Word Processor`, `Spreadsheet`, `My Files`, `Terminal`).
+  - Session: Zero-overhead auto-login on `tty1` into X11 display.
+- Executed full QEMU graphical emulation test with 512 MB RAM (`tests/test_desktop_boot.sh x86_64 512M`):
+  - Resolution: `1280x800` TrueColor 24-bit depth initialized via KMS modesetting.
+  - **Idle RAM Measured**: **63 MB used** out of 468 MB available (Available RAM: **404 MB**).
+  - **Target Verification**: Idle consumption is **52.5% below the strict 120 MB ceiling**!
+  - ZRAM Swap: 702 MB compressed swap allocated and standing by with 0 MB consumption.

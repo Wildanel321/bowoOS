@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Word Processor
+Comment=Edit documents (Adaptive Profile)
+Exec=/usr/local/bin/lite-launch-office
+Icon=accessories-text-editor
+Terminal=false
+Categories=Office;

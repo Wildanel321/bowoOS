@@ -1,0 +1,30 @@
+#!/bin/bash
+# ==============================================================================
+# Lite Office OS — Adaptive Word Processor Launcher
+# Launches AbiWord on 512 MB systems or LibreOffice Writer on >= 1 GB systems
+# ==============================================================================
+set -eu
+
+TIER="512m"
+if [ -f /etc/lite-profile ]; then
+    . /etc/lite-profile
+    TIER="${LITE_TIER:-512m}"
+fi
+
+if [ "$TIER" = "512m" ]; then
+    if which abiword >/dev/null 2>&1; then
+        exec abiword "$@"
+    elif which mousepad >/dev/null 2>&1; then
+        exec mousepad "$@"
+    else
+        exec nano "$@"
+    fi
+else
+    if which libreoffice >/dev/null 2>&1; then
+        exec libreoffice --writer "$@"
+    elif which abiword >/dev/null 2>&1; then
+        exec abiword "$@"
+    else
+        exec mousepad "$@"
+    fi
+fi

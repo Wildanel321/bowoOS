@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ==============================================================================
+     Lite Office OS — Openbox Root Application Menu
+     Fast, Categorized, Memory-Aware Application Launcher
+     ============================================================================== -->
+<openbox_menu xmlns="http://openbox.org/3.4/menu">
+
+  <menu id="apps-office" label="Office &amp; Documents">
+    <item label="Word Processor (Adaptive)">
+      <action name="Execute">
+        <command>/usr/local/bin/lite-launch-office</command>
+      </action>
+    </item>
+    <item label="Spreadsheets (Adaptive)">
+      <action name="Execute">
+        <command>/usr/local/bin/lite-launch-spreadsheet</command>
+      </action>
+    </item>
+    <item label="PDF Document Viewer">
+      <action name="Execute">
+        <command>qpdfview</command>
+      </action>
+    </item>
+    <item label="Lightweight Text Editor">
+      <action name="Execute">
+        <command>mousepad</command>
+      </action>
+    </item>
+    <item label="Scientific Calculator">
+      <action name="Execute">
+        <command>galculator</command>
+      </action>
+    </item>
+  </menu>
+
+  <menu id="apps-accessories" label="Accessories">
+    <item label="File Manager (PCManFM)">
+      <action name="Execute">
+        <command>pcmanfm</command>
+      </action>
+    </item>
+    <item label="Terminal Emulator">
+      <action name="Execute">
+        <command>lxterminal</command>
+      </action>
+    </item>
+    <item label="Archive Manager">
+      <action name="Execute">
+        <command>xarchiver</command>
+      </action>
+    </item>
+    <item label="Take Screenshot">
+      <action name="Execute">
+        <command>scrot -d 3 '%Y-%m-%d-%H%M%S.png' -e 'mv $f ~/Pictures/'</command>
+      </action>
+    </item>
+  </menu>
+
+  <menu id="apps-system" label="System &amp; Diagnostics">
+    <item label="Task &amp; Memory Monitor">
+      <action name="Execute">
+        <command>lxterminal -e htop</command>
+      </action>
+    </item>
+    <item label="Hardware &amp; RAM Profile">
+      <action name="Execute">
+        <command>/usr/local/bin/lite-info</command>
+      </action>
+    </item>
+    <item label="Disk Usage (ncdu)">
+      <action name="Execute">
+        <command>lxterminal -e ncdu /</command>
+      </action>
+    </item>
+  </menu>
+
+  <menu id="apps-preferences" label="Preferences">
+    <item label="Appearance &amp; GTK Theme">
+      <action name="Execute">
+        <command>lxappearance</command>
+      </action>
+    </item>
+    <item label="Openbox Window Settings">
+      <action name="Execute">
+        <command>obconf</command>
+      </action>
+    </item>
+    <item label="Display &amp; Resolution">
+      <action name="Execute">
+        <command>arandr</command>
+      </action>
+    </item>
+  </menu>
+
+  <menu id="root-menu" label="Lite Office OS">
+    <separator label="Applications"/>
+    <menu id="apps-office"/>
+    <menu id="apps-accessories"/>
+    <menu id="apps-system"/>
+    <menu id="apps-preferences"/>
+
+    <separator label="Shortcuts"/>
+    <item label="My Files (Home)">
+      <action name="Execute">
+        <command>pcmanfm /home/liteuser</command>
+      </action>
+    </item>
+    <item label="Terminal">
+      <action name="Execute">
+        <command>lxterminal</command>
+      </action>
+    </item>
+
+    <separator/>
+    <item label="Session &amp; Power Control...">
+      <action name="Execute">
+        <command>/usr/local/bin/lite-logout</command>
+      </action>
+    </item>
+  </menu>
+
+</openbox_menu>

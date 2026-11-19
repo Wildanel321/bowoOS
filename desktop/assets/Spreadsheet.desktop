@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Spreadsheet
+Comment=Analyze spreadsheets (Adaptive Profile)
+Exec=/usr/local/bin/lite-launch-spreadsheet
+Icon=x-office-spreadsheet
+Terminal=false
+Categories=Office;

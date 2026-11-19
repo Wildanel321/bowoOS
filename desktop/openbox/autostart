@@ -1,0 +1,57 @@
+#!/bin/sh
+# ==============================================================================
+# Lite Office OS — Openbox Session Autostart Script
+# Starts lightweight desktop services and applies memory-tuned defaults
+# ==============================================================================
+
+# Guard against duplicate execution by openbox-autostart (global + user)
+if [ -n "${LITE_AUTOSTART_RUNNING:-}" ]; then
+    exit 0
+fi
+export LITE_AUTOSTART_RUNNING=1
+
+# 1. Turn off screen saver blanking for predictable office display
+xset s off 2>/dev/null || true
+xset -dpms 2>/dev/null || true
+
+# 2. Source hardware memory profile
+if [ -f /etc/lite-profile ]; then
+    . /etc/lite-profile
+fi
+
+# 3. Set neutral background color before wallpaper loads
+xsetroot -solid "#1e222a" 2>/dev/null || true
+
+# 4. Start PCManFM in Desktop Management Mode (renders desktop icons & wallpaper)
+pcmanfm --desktop &
+
+# 5. Start Tint2 Modern Panel
+tint2 &
+
+# 6. Start Lightweight ALSA Volume Tray Icon
+if which volumeicon >/dev/null 2>&1; then
+    volumeicon &
+fi
+
+# 7. Conditional Compositing (Only on >= 2 GB RAM if explicitly enabled)
+if [ "${DESKTOP_COMPOSITING:-none}" = "picom" ] && which picom >/dev/null 2>&1; then
+    picom -b --backend xrender --no-fading-openclose
+fi
+
+# 8. Automated Desktop Benchmark & Status Telemetry
+BENCH_OUT="$HOME/desktop_benchmark.log"
+{
+    echo "=== LITE OFFICE OS DESKTOP BENCHMARK ==="
+    free -m
+    echo "--- RUNNING DESKTOP PROCESSES ---"
+    ps -eo pid,cmd,%mem,rss --sort=-rss | head -n 15
+    echo "=== BENCHMARK COMPLETE ==="
+} > "$BENCH_OUT" 2>&1
+
+# Broadcast to console / kmsg if accessible
+if [ -w /dev/kmsg ]; then
+    while IFS= read -r line; do
+        echo "<6>LITE_BENCH: $line" > /dev/kmsg 2>/dev/null || true
+    done < "$BENCH_OUT"
+fi
+

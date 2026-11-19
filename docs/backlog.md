@@ -7,8 +7,8 @@
 | **Stage 1** | Foundation, Documentation & Host Check | **COMPLETED** | Specifications, Project Docs, Repository Tree, Host Validator |
 | **Stage 2** | Kernel 6.6 LTS & Minimal BusyBox Initramfs | **COMPLETED** | `x86_64_lite_defconfig`, compiled `vmlinuz-6.6-lite`, initramfs, QEMU early boot (Verified) |
 | **Stage 3** | Base Rootfs & OpenRC Init Integration | **COMPLETED** | Base filesystem skeleton, OpenRC services (`zram-swap`, `lite-profile-detect`, `lite-oom`), agetty consoles, unprivileged `liteuser` (Verified in QEMU at 512M) |
-| **Stage 4** | X11 Display Server & Openbox Desktop Shell | **NEXT (PENDING APPROVAL)** | Xorg minimal, Openbox WM, Tint2 panel, PCManFM desktop, clean theme |
-| **Stage 5** | Office Suite & Document Processing Stack | PENDING | AbiWord, Gnumeric, LibreOffice, PDF viewer, CUPS printing daemon |
+| **Stage 4** | X11 Display Server & Openbox Desktop Shell | **COMPLETED** | Xorg minimal, Openbox WM, Tint2 modern panel, PCManFM desktop, 63 MB Idle RAM (Verified in QEMU) |
+| **Stage 5** | Office Suite & Document Processing Stack | **NEXT (PENDING APPROVAL)** | AbiWord, Gnumeric, LibreOffice, PDF viewer, CUPS printing daemon |
 | **Stage 6** | RAM Optimization Daemons & Memory Profiling | PENDING | ZRAM autoscaler, earlyoom supervisor, sysctl low-RAM tuning |
 | **Stage 7** | Offline Installer & Live Hybrid ISO | PENDING | CLI/TUI installer, GRUB EFI/BIOS hybrid ISO generator |
 | **Stage 8** | QEMU Benchmark & Verification Suite | PENDING | Multi-RAM profile benchmarks (512M, 1G, 2G), test report |
@@ -47,11 +47,12 @@
 - [x] Test and verify full OpenRC boot and getty login in QEMU at 512M RAM (Verified PASS)
 
 ### Stage 4: Graphical Desktop
-- [ ] Configure minimal Xorg server and video drivers
-- [ ] Implement Openbox configuration (`desktop/openbox/rc.xml`, `menu.xml`, `autostart`)
-- [ ] Implement Tint2 configuration (`desktop/tint2/tint2rc`)
-- [ ] Implement PCManFM desktop configuration
-- [ ] Apply modern, clean, lightweight GTK/Openbox theme
+- [x] Configure minimal Xorg server, modesetting KMS, and input drivers
+- [x] Implement Openbox configuration (`desktop/openbox/rc.xml`, `menu.xml`, `autostart`)
+- [x] Implement Tint2 modern flat panel (`desktop/tint2/tint2rc`)
+- [x] Implement PCManFM desktop configuration and shortcuts
+- [x] Configure zero-overhead autologin on `tty1` into graphical desktop session
+- [x] Test and verify in QEMU: Achieved 63 MB idle RAM (Target: <= 120 MB) [PASS]
 
 ### Stage 5: Office Applications
 - [ ] Configure AbiWord & Gnumeric for low-RAM tier

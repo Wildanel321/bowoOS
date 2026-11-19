@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Applications
+Comment=Open Application Menu
+Exec=openbox --show-menu root-menu
+Icon=start-here
+Terminal=false
+Categories=System;

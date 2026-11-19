@@ -1,0 +1,103 @@
+/* LiteOffice OS — Modern Minimalist GTK3 Theme */
+@define-color bg_color #16191f;
+@define-color base_color #121419;
+@define-color surface_color #1e222a;
+@define-color border_color #282c34;
+@define-color text_color #f8fafc;
+@define-color text_muted #94a3b8;
+@define-color accent_color #2563eb;
+@define-color accent_hover #3b82f6;
+@define-color accent_active #1d4ed8;
+
+* {
+  background-clip: padding-box;
+  -GtkToolButton-icon-spacing: 4;
+  -GtkTextView-error-underline-color: #ef4444;
+  -GtkCheckButton-indicator-size: 16;
+}
+
+window, .background {
+  background-color: @bg_color;
+  color: @text_color;
+}
+
+headerbar {
+  background-color: @surface_color;
+  border-bottom: 1px solid @border_color;
+  padding: 4px 8px;
+}
+
+headerbar label.title {
+  font-weight: bold;
+  color: @text_color;
+}
+
+button {
+  background-color: @surface_color;
+  color: @text_color;
+  border: 1px solid @border_color;
+  border-radius: 4px;
+  padding: 5px 12px;
+  transition: background-color 120ms ease-in-out;
+}
+
+button:hover {
+  background-color: #262c37;
+  border-color: #3b4353;
+}
+
+button:active, button:checked {
+  background-color: @accent_active;
+  color: #ffffff;
+  border-color: @accent_color;
+}
+
+button.suggested-action {
+  background-color: @accent_color;
+  color: #ffffff;
+  border-color: @accent_hover;
+}
+
+button.suggested-action:hover {
+  background-color: @accent_hover;
+}
+
+entry {
+  background-color: @base_color;
+  color: @text_color;
+  border: 1px solid @border_color;
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+entry:focus {
+  border-color: @accent_color;
+}
+
+/* Scrollbars */
+scrollbar {
+  background-color: transparent;
+}
+
+scrollbar slider {
+  background-color: #2b313d;
+  border-radius: 4px;
+  min-width: 6px;
+  min-height: 6px;
+}
+
+scrollbar slider:hover {
+  background-color: #3b4353;
+}
+
+/* TreeView and Lists */
+treeview {
+  background-color: @base_color;
+  color: @text_color;
+  border: 1px solid @border_color;
+}
+
+treeview:selected {
+  background-color: @accent_color;
+  color: #ffffff;
+}

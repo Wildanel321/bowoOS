@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#181b22"/>
+      <stop offset="50%" stop-color="#13161c"/>
+      <stop offset="100%" stop-color="#0f1115"/>
+    </linearGradient>
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Solid Clean Deep Background -->
+  <rect width="1920" height="1080" fill="url(#bgGrad)"/>
+
+  <!-- Subtle Minimal Geometric Accent Lines -->
+  <line x1="0" y1="540" x2="1920" y2="540" stroke="#1f242d" stroke-width="1" opacity="0.6"/>
+  <line x1="960" y1="0" x2="960" y2="1080" stroke="#1f242d" stroke-width="1" opacity="0.6"/>
+  <circle cx="960" cy="510" r="280" fill="none" stroke="#222731" stroke-width="1" opacity="0.8"/>
+  <circle cx="960" cy="510" r="380" fill="none" stroke="#1b1f27" stroke-width="1" opacity="0.6"/>
+
+  <!-- Center Branded Medallion -->
+  <g transform="translate(960, 470)">
+    <!-- Medallion Background -->
+    <rect x="-70" y="-70" width="140" height="140" rx="32" fill="#181c23" stroke="#282f3c" stroke-width="2"/>
+
+    <!-- Document Base -->
+    <path d="M-36 -46 H8 L28 -26 V46 H-36 Z" fill="url(#cardGrad)" rx="3"/>
+    <!-- Fold -->
+    <path d="M8 -46 V-26 H28 Z" fill="#1e40af"/>
+
+    <!-- Lines -->
+    <rect x="-24" y="-12" width="36" height="4" rx="2" fill="#ffffff" opacity="0.95"/>
+    <rect x="-24" y="-2" width="36" height="4" rx="2" fill="#ffffff" opacity="0.85"/>
+    <rect x="-24" y="8" width="24" height="4" rx="2" fill="#ffffff" opacity="0.75"/>
+
+    <!-- Accent Orbit -->
+    <circle cx="20" cy="24" r="9" fill="url(#accentGrad)"/>
+    <path d="M17 24 L19 26 L23 21" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Typography -->
+  <text x="960" y="600" text-anchor="middle" font-family="DejaVu Sans, Inter, system-ui, sans-serif" font-size="28" font-weight="700" fill="#f8fafc" letter-spacing="1">LiteOffice OS</text>
+  <text x="960" y="630" text-anchor="middle" font-family="DejaVu Sans, Inter, system-ui, sans-serif" font-size="13" font-weight="400" fill="#94a3b8" letter-spacing="2">LIGHTWEIGHT PRODUCTIVITY OPERATING SYSTEM</text>
+</svg>

@@ -48,7 +48,10 @@ BENCH_OUT="$HOME/desktop_benchmark.log"
     echo "=== BENCHMARK COMPLETE ==="
 } > "$BENCH_OUT" 2>&1
 
-# Broadcast to console / kmsg if accessible
+# Broadcast to console / ttyS0 / kmsg
+if [ -w /dev/ttyS0 ]; then
+    cat "$BENCH_OUT" > /dev/ttyS0 2>/dev/null || true
+fi
 if [ -w /dev/kmsg ]; then
     while IFS= read -r line; do
         echo "<6>LITE_BENCH: $line" > /dev/kmsg 2>/dev/null || true

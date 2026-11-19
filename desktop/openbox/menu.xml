@@ -57,7 +57,12 @@
   </menu>
 
   <menu id="apps-system" label="System &amp; Diagnostics">
-    <item label="Task &amp; Memory Monitor">
+    <item label="System Monitor (LiteOffice)">
+      <action name="Execute">
+        <command>/usr/local/bin/liteoffice-monitor</command>
+      </action>
+    </item>
+    <item label="Task &amp; Memory Monitor (htop)">
       <action name="Execute">
         <command>lxterminal -e htop</command>
       </action>
@@ -75,6 +80,11 @@
   </menu>
 
   <menu id="apps-preferences" label="Preferences">
+    <item label="Control Center">
+      <action name="Execute">
+        <command>/usr/local/bin/liteoffice-control-center</command>
+      </action>
+    </item>
     <item label="Appearance &amp; GTK Theme">
       <action name="Execute">
         <command>lxappearance</command>
@@ -92,7 +102,12 @@
     </item>
   </menu>
 
-  <menu id="root-menu" label="Lite Office OS">
+  <menu id="root-menu" label="LiteOffice OS">
+    <item label="Welcome Center">
+      <action name="Execute">
+        <command>/usr/local/bin/liteoffice-welcome</command>
+      </action>
+    </item>
     <separator label="Applications"/>
     <menu id="apps-office"/>
     <menu id="apps-accessories"/>
@@ -100,9 +115,19 @@
     <menu id="apps-preferences"/>
 
     <separator label="Shortcuts"/>
+    <item label="Control Center">
+      <action name="Execute">
+        <command>/usr/local/bin/liteoffice-control-center</command>
+      </action>
+    </item>
+    <item label="System Monitor">
+      <action name="Execute">
+        <command>/usr/local/bin/liteoffice-monitor</command>
+      </action>
+    </item>
     <item label="My Files (Home)">
       <action name="Execute">
-        <command>pcmanfm /home/liteuser</command>
+        <command>pcmanfm</command>
       </action>
     </item>
     <item label="Terminal">
@@ -112,6 +137,11 @@
     </item>
 
     <separator/>
+    <item label="About LiteOffice OS">
+      <action name="Execute">
+        <command>/usr/local/bin/liteoffice-about</command>
+      </action>
+    </item>
     <item label="Session &amp; Power Control...">
       <action name="Execute">
         <command>/usr/local/bin/lite-logout</command>

@@ -1,0 +1,33 @@
+# LiteOffice OS — GTK2 Theme Configuration
+gtk-color-scheme = "bg_color:#16191f\nfg_color:#f8fafc\nbase_color:#121419\ntext_color:#f8fafc\nselected_bg_color:#2563eb\nselected_fg_color:#ffffff\ntooltip_bg_color:#1e222a\ntooltip_fg_color:#f8fafc"
+
+style "default" {
+  bg[NORMAL]        = @bg_color
+  bg[PRELIGHT]      = shade(1.1, @bg_color)
+  bg[ACTIVE]        = shade(0.9, @bg_color)
+  bg[SELECTED]      = @selected_bg_color
+  bg[INSENSITIVE]   = @bg_color
+
+  fg[NORMAL]        = @fg_color
+  fg[PRELIGHT]      = @fg_color
+  fg[ACTIVE]        = @fg_color
+  fg[SELECTED]      = @selected_fg_color
+  fg[INSENSITIVE]   = shade(0.6, @fg_color)
+
+  base[NORMAL]      = @base_color
+  base[PRELIGHT]    = shade(1.1, @base_color)
+  base[ACTIVE]      = @selected_bg_color
+  base[SELECTED]    = @selected_bg_color
+  base[INSENSITIVE] = @base_color
+
+  text[NORMAL]      = @text_color
+  text[PRELIGHT]    = @text_color
+  text[ACTIVE]      = @selected_fg_color
+  text[SELECTED]    = @selected_fg_color
+  text[INSENSITIVE] = shade(0.6, @text_color)
+
+  xthickness = 2
+  ythickness = 2
+}
+
+class "GtkWidget" style "default"

@@ -1,0 +1,35 @@
+# LiteOffice OS — GRUB Bootloader Theme Specification
+title-text: ""
+desktop-image: "background.png"
+desktop-color: "#13161c"
+message-font: "DejaVu Sans Regular 14"
+message-color: "#94a3b8"
+message-bg-color: "#181b22"
+terminal-font: "DejaVu Sans Mono Regular 12"
+
++ boot_menu {
+  left = 28%
+  width = 44%
+  top = 42%
+  height = 36%
+  item_font = "DejaVu Sans Regular 14"
+  item_color = "#94a3b8"
+  selected_item_font = "DejaVu Sans Bold 14"
+  selected_item_color = "#ffffff"
+  item_height = 36
+  item_padding = 8
+  item_spacing = 6
+  icon_width = 24
+  icon_height = 24
+}
+
++ progress_bar {
+  id = "__timeout__"
+  left = 28%
+  width = 44%
+  top = 82%
+  height = 8
+  fg_color = "#2563eb"
+  bg_color = "#1e222a"
+  border_color = "#282c34"
+}

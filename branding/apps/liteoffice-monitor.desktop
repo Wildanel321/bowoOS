@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=System Monitor
+GenericName=Resource Monitor
+Comment=Real-time system CPU, memory, disk, and process monitor
+Exec=/usr/local/bin/liteoffice-monitor
+Icon=utilities-system-monitor
+Terminal=false
+Categories=System;Monitor;
+StartupNotify=true

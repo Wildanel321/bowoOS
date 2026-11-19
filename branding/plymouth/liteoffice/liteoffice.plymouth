@@ -1,0 +1,19 @@
+[Plymouth Theme]
+Name=LiteOffice
+Description=LiteOffice OS clean, low-overhead boot and shutdown splash
+ModuleName=two-step
+
+[two-step]
+ImageDir=/usr/share/plymouth/themes/liteoffice
+HorizontalAlignment=0.5
+VerticalAlignment=0.45
+Transition=fade
+TransitionDuration=0.3
+BackgroundStartColor=0x16191f
+BackgroundEndColor=0x16191f
+WatermarkHorizontalAlignment=0.5
+WatermarkVerticalAlignment=0.42
+AnimationFrameRate=12
+AnimationHorizontalAlignment=0.5
+AnimationVerticalAlignment=0.60
+ProgressBar=false

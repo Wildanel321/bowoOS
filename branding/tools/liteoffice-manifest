@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+import os
+import sys
+import hashlib
+import json
+import stat
+
+MANIFEST_PATH = "/etc/liteoffice/manifest.json"
+
+TARGET_PATHS = [
+    "/etc/os-release",
+    "/etc/issue",
+    "/etc/inittab",
+    "/etc/rc.conf",
+    "/etc/sysctl.d/99-lowmem.conf",
+    "/usr/local/bin/liteoffice-about",
+    "/usr/local/bin/liteoffice-welcome",
+    "/usr/local/bin/liteoffice-control-center",
+    "/usr/local/bin/liteoffice-monitor",
+    "/usr/local/bin/liteoffice-pkg",
+    "/usr/local/bin/liteoffice-automate",
+    "/usr/local/bin/liteoffice-manifest",
+    "/usr/local/bin/liteoffice-healthd",
+    "/etc/init.d/liteoffice-health",
+    "/etc/init.d/zram-swap",
+    "/etc/init.d/lite-profile-detect",
+    "/etc/init.d/lite-oom",
+    "/usr/share/wallpapers/liteoffice/liteoffice-default.png",
+    "/usr/share/wallpapers/liteoffice/liteoffice-minimal.png"
+]
+
+def sha256sum(filepath):
+    h = hashlib.sha256()
+    try:
+        with open(filepath, 'rb') as f:
+            while chunk := f.read(65536):
+                h.update(chunk)
+        return h.hexdigest()
+    except Exception:
+        return None
+
+def generate_manifest(output_path=MANIFEST_PATH):
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    manifest = {
+        "os": "LiteOffice OS",
+        "version": "1.0 LTS",
+        "generated_at": int(os.path.getmtime("/bin/sh") if os.path.exists("/bin/sh") else 0),
+        "files": []
+    }
+
+    count = 0
+    for path in TARGET_PATHS:
+        if os.path.exists(path):
+            st = os.stat(path)
+            mode = oct(stat.S_IMODE(st.st_mode))
+            csum = sha256sum(path)
+            manifest["files"].append({
+                "path": path,
+                "sha256": csum,
+                "mode": mode,
+                "size": st.st_size
+            })
+            count += 1
+
+    with open(output_path, "w") as f:
+        json.dump(manifest, f, indent=2)
+
+    print(f"[+] Manifest generated successfully: {output_path} ({count} files recorded)")
+
+def verify_manifest(manifest_path=MANIFEST_PATH):
+    if not os.path.exists(manifest_path):
+        print(f"[-] Error: Manifest file '{manifest_path}' not found.")
+        sys.exit(1)
+
+    with open(manifest_path, "r") as f:
+        data = json.load(f)
+
+    files = data.get("files", [])
+    print(f"[*] Verifying {len(files)} files against LiteOffice OS manifest...")
+
+    passed = 0
+    failed = 0
+
+    for item in files:
+        path = item["path"]
+        expected_sha = item["sha256"]
+        expected_mode = item["mode"]
+
+        if not os.path.exists(path):
+            print(f"  [-] MISSING : {path}")
+            failed += 1
+            continue
+
+        st = os.stat(path)
+        actual_mode = oct(stat.S_IMODE(st.st_mode))
+        actual_sha = sha256sum(path)
+
+        if actual_sha != expected_sha:
+            print(f"  [-] CHECKSUM MISMATCH : {path}")
+            failed += 1
+        elif actual_mode != expected_mode:
+            print(f"  [!] PERMISSION MISMATCH : {path} (expected {expected_mode}, found {actual_mode})")
+            passed += 1
+        else:
+            passed += 1
+
+    print("\n--------------------------------------------------")
+    print(f"Verification Results: {passed} PASSED, {failed} FAILED")
+    print("--------------------------------------------------")
+
+    if failed == 0:
+        print("[V] System integrity verified: 100% PASS")
+        sys.exit(0)
+    else:
+        print("[-] System integrity verification FAILED")
+        sys.exit(1)
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "generate":
+        out = sys.argv[2] if len(sys.argv) > 2 else MANIFEST_PATH
+        generate_manifest(out)
+    elif len(sys.argv) > 1 and sys.argv[1] == "verify":
+        m = sys.argv[2] if len(sys.argv) > 2 else MANIFEST_PATH
+        verify_manifest(m)
+    else:
+        print("LiteOffice OS Manifest Engine (liteoffice-manifest)")
+        print("Usage: liteoffice-manifest <generate|verify> [path]")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

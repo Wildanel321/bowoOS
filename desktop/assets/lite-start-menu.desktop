@@ -3,6 +3,6 @@ Type=Application
 Name=Applications
 Comment=Open Application Menu
 Exec=openbox --show-menu root-menu
-Icon=start-here
+Icon=liteoffice
 Terminal=false
 Categories=System;

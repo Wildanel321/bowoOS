@@ -1,0 +1,26 @@
+#!/sbin/openrc-run
+# ==============================================================================
+# LiteOffice OS — Health Monitoring Service (OpenRC)
+# ==============================================================================
+description="LiteOffice OS Background Health & Resource Monitor"
+
+command="/usr/local/bin/liteoffice-healthd"
+command_background=true
+pidfile="/run/liteoffice-health.pid"
+
+depend() {
+    after zram-swap
+    keyword -prefix -vserver
+}
+
+checkconfig() {
+    if [ ! -x "$command" ]; then
+        eerror "Health daemon $command not found or not executable"
+        return 1
+    fi
+}
+
+start_pre() {
+    checkconfig || return 1
+    mkdir -p /var/log/liteoffice
+}

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Control Center
+GenericName=System Settings
+Comment=LiteOffice OS hardware and desktop configuration center
+Exec=/usr/local/bin/liteoffice-control-center
+Icon=preferences-system
+Terminal=false
+Categories=Settings;HardwareSettings;
+StartupNotify=true

@@ -1,0 +1,50 @@
+# LiteOffice OS — Openbox 3.6 Theme
+# Clean, modern 1px flat border theme
+
+# Window Borders
+border.width: 1
+border.color: #282c34
+window.active.border.color: #2563eb
+window.inactive.border.color: #282c34
+
+# Titlebar
+window.active.title.bg: flat solid
+window.active.title.bg.color: #1e222a
+window.inactive.title.bg: flat solid
+window.inactive.title.bg.color: #16191f
+
+# Label / Text
+window.active.label.bg: parentrelative
+window.active.label.text.color: #f8fafc
+window.inactive.label.bg: parentrelative
+window.inactive.label.text.color: #94a3b8
+
+# Buttons
+window.active.button.unpressed.bg: parentrelative
+window.active.button.unpressed.image.color: #f8fafc
+window.active.button.hover.bg: flat solid
+window.active.button.hover.bg.color: #262c37
+window.active.button.hover.image.color: #38bdf8
+
+window.inactive.button.unpressed.bg: parentrelative
+window.inactive.button.unpressed.image.color: #64748b
+
+# Close Button Hover (Clean Subtle Red)
+window.active.button.close.hover.bg: flat solid
+window.active.button.close.hover.bg.color: #ef4444
+window.active.button.close.hover.image.color: #ffffff
+
+# Menus
+menu.border.width: 1
+menu.border.color: #282c34
+menu.title.bg: flat solid
+menu.title.bg.color: #181b22
+menu.title.text.color: #f8fafc
+
+menu.items.bg: flat solid
+menu.items.bg.color: #16191f
+menu.items.text.color: #cbd5e1
+
+menu.items.active.bg: flat solid
+menu.items.active.bg.color: #2563eb
+menu.items.active.text.color: #ffffff

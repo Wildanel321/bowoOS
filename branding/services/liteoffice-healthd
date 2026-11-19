@@ -1,0 +1,74 @@
+#!/bin/bash
+# ==============================================================================
+# LiteOffice OS — System Health Monitoring Daemon
+# Periodic resource supervision and diagnostic logging
+# ==============================================================================
+set -euo pipefail
+
+LOG_DIR="/var/log/liteoffice"
+LOG_FILE="$LOG_DIR/health.log"
+mkdir -p "$LOG_DIR"
+
+check_health() {
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local mem_avail_mb=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)
+    local mem_total_mb=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)
+    local disk_avail_mb=$(df -m / | awk 'NR==2 {print $4}')
+    local zram_status="INACTIVE"
+
+    if grep -q "/dev/zram0" /proc/swaps 2>/dev/null; then
+        zram_status="ACTIVE"
+    fi
+
+    local status="HEALTHY"
+    local issues=()
+
+    # Memory pressure alert threshold: < 20 MB free
+    if [ "$mem_avail_mb" -lt 20 ]; then
+        status="WARNING"
+        issues+=("Low memory available (${mem_avail_mb}MB)")
+    fi
+
+    # Disk storage alert threshold: < 150 MB free
+    if [ "$disk_avail_mb" -lt 150 ]; then
+        status="WARNING"
+        issues+=("Low disk space (${disk_avail_mb}MB)")
+    fi
+
+    # ZRAM check
+    if [ "$zram_status" != "ACTIVE" ]; then
+        status="WARNING"
+        issues+=("ZRAM compressed swap is not active")
+    fi
+
+    local issue_str="None"
+    if [ ${#issues[@]} -gt 0 ]; then
+        issue_str=$(IFS='; '; echo "${issues[*]}")
+    fi
+
+    echo "[$timestamp] STATUS=$status RAM_AVAIL=${mem_avail_mb}MB/${mem_total_mb}MB DISK_AVAIL=${disk_avail_mb}MB ZRAM=$zram_status ISSUES=[$issue_str]" >> "$LOG_FILE"
+
+    if [ "${1:-}" = "--check" ]; then
+        echo "[$timestamp] LiteOffice OS Health Check: $status"
+        echo "RAM Available : ${mem_avail_mb} MB / ${mem_total_mb} MB"
+        echo "Disk Free     : ${disk_avail_mb} MB"
+        echo "ZRAM Status   : $zram_status"
+        echo "Issues        : $issue_str"
+        if [ "$status" = "HEALTHY" ]; then
+            return 0
+        else
+            return 1
+        fi
+    fi
+}
+
+if [ "${1:-}" = "--check" ]; then
+    check_health --check
+    exit $?
+fi
+
+# Daemon loop: runs every 30 seconds
+while true; do
+    check_health
+    sleep 30
+done

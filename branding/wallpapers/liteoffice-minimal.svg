@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <linearGradient id="minGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14171d"/>
+      <stop offset="100%" stop-color="#0f1115"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#minGrad)"/>
+
+  <!-- Subtle Bottom Right Monogram -->
+  <g transform="translate(1820, 1000)" opacity="0.45">
+    <rect x="-24" y="-24" width="48" height="48" rx="12" fill="#1b1f27" stroke="#252b36" stroke-width="1"/>
+    <path d="M-12 -16 H3 L10 -9 V16 H-12 Z" fill="#2563eb"/>
+  </g>
+</svg>

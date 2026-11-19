@@ -1,0 +1,100 @@
+#!/bin/bash
+# ==============================================================================
+# LiteOffice OS — Package Management Interface
+# Optimized for low-storage and low-memory environments
+# ==============================================================================
+set -euo pipefail
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+CMD="${1:-}"
+
+print_help() {
+    echo -e "${BLUE}LiteOffice OS Package Tool (liteoffice-pkg)${NC}"
+    echo "Usage: liteoffice-pkg <command> [arguments]"
+    echo ""
+    echo "Commands:"
+    echo "  install <pkg>   Install package without bloated recommended dependencies"
+    echo "  remove <pkg>    Remove package and purge configuration"
+    echo "  update          Update package index"
+    echo "  search <query>  Search for available packages"
+    echo "  info <pkg>      Display package information"
+    echo "  list            List installed packages"
+    echo "  clean           Clean package caches to free disk space"
+    echo "  check           Verify system dependencies and broken packages"
+    exit 0
+}
+
+if [ -z "$CMD" ] || [ "$CMD" = "--help" ] || [ "$CMD" = "-h" ]; then
+    print_help
+fi
+
+case "$CMD" in
+    install)
+        PKG="${2:-}"
+        if [ -z "$PKG" ]; then
+            echo -e "${RED}Error: Package name required.${NC} Usage: liteoffice-pkg install <pkg>"
+            exit 1
+        fi
+        echo -e "${BLUE}[*] Installing package: ${PKG}...${NC}"
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends "$PKG"
+        sudo apt-get clean
+        echo -e "${GREEN}[+] Successfully installed ${PKG}.${NC}"
+        ;;
+    remove)
+        PKG="${2:-}"
+        if [ -z "$PKG" ]; then
+            echo -e "${RED}Error: Package name required.${NC} Usage: liteoffice-pkg remove <pkg>"
+            exit 1
+        fi
+        echo -e "${BLUE}[*] Removing package: ${PKG}...${NC}"
+        sudo apt-get remove --purge -y "$PKG"
+        sudo apt-get autoremove -y --purge
+        sudo apt-get clean
+        echo -e "${GREEN}[+] Successfully removed ${PKG}.${NC}"
+        ;;
+    update)
+        echo -e "${BLUE}[*] Updating package index...${NC}"
+        sudo apt-get update
+        echo -e "${GREEN}[+] Package index updated.${NC}"
+        ;;
+    search)
+        QUERY="${2:-}"
+        if [ -z "$QUERY" ]; then
+            echo -e "${RED}Error: Search query required.${NC}"
+            exit 1
+        fi
+        apt-cache search "$QUERY"
+        ;;
+    info)
+        PKG="${2:-}"
+        if [ -z "$PKG" ]; then
+            echo -e "${RED}Error: Package name required.${NC}"
+            exit 1
+        fi
+        apt-cache show "$PKG"
+        ;;
+    list)
+        dpkg-query -W -f='${Package} ${Version} (${Architecture})\n' | column -t
+        ;;
+    clean)
+        echo -e "${BLUE}[*] Cleaning apt caches and temporary files...${NC}"
+        sudo apt-get clean
+        sudo rm -rf /var/cache/apt/archives/*.deb
+        echo -e "${GREEN}[+] Package caches cleaned.${NC}"
+        ;;
+    check)
+        echo -e "${BLUE}[*] Checking package integrity...${NC}"
+        sudo dpkg --audit
+        echo -e "${GREEN}[+] Package integrity check complete.${NC}"
+        ;;
+    *)
+        echo -e "${RED}Unknown command: $CMD${NC}"
+        print_help
+        ;;
+esac

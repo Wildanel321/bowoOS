@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Welcome Center
+GenericName=Getting Started Guide
+Comment=LiteOffice OS offline guide and quick start settings
+Exec=/usr/local/bin/liteoffice-welcome
+Icon=liteoffice
+Terminal=false
+Categories=System;Utility;
+StartupNotify=true

@@ -5,8 +5,8 @@
 | Stage | Description | Status | Deliverables |
 | :--- | :--- | :--- | :--- |
 | **Stage 1** | Foundation, Documentation & Host Check | **COMPLETED** | Specifications, Project Docs, Repository Tree, Host Validator |
-| **Stage 2** | Kernel 6.6 LTS & Minimal BusyBox Initramfs | **NEXT (PENDING APPROVAL)** | `x86_64_lite_defconfig`, compiled `vmlinuz`, initramfs, QEMU early boot |
-| **Stage 3** | Base Rootfs & OpenRC Init Integration | PENDING | Base filesystem skeleton, OpenRC services (`zram-swap`), eudev, shell login |
+| **Stage 2** | Kernel 6.6 LTS & Minimal BusyBox Initramfs | **COMPLETED** | `x86_64_lite_defconfig`, compiled `vmlinuz-6.6-lite`, initramfs, QEMU early boot (Verified) |
+| **Stage 3** | Base Rootfs & OpenRC Init Integration | **NEXT (PENDING APPROVAL)** | Base filesystem skeleton, OpenRC services (`zram-swap`), eudev, shell login |
 | **Stage 4** | X11 Display Server & Openbox Desktop Shell | PENDING | Xorg minimal, Openbox WM, Tint2 panel, PCManFM desktop, themes |
 | **Stage 5** | Office Suite & Document Processing Stack | PENDING | AbiWord, Gnumeric, LibreOffice, PDF viewer, CUPS printing daemon |
 | **Stage 6** | RAM Optimization Daemons & Memory Profiling | PENDING | ZRAM autoscaler, earlyoom supervisor, sysctl low-RAM tuning |
@@ -31,11 +31,12 @@
 - [x] Execute and verify host environment inside WSL2 Ubuntu (0 errors, 0 warnings)
 
 ### Stage 2: Kernel & Early Userspace
-- [ ] Create `kernel/config/x86_64_lite_defconfig`
-- [ ] Create `kernel/config/i686_lite_defconfig`
-- [ ] Create `scripts/02_build_kernel.sh` (Kernel download, verify checksum, build)
-- [ ] Create minimal BusyBox initramfs generator (`initramfs/build_initramfs.sh`)
-- [ ] Test early kernel + initramfs boot in QEMU
+- [x] Create `kernel/config/x86_64_lite_defconfig`
+- [x] Create `kernel/config/i686_lite_defconfig`
+- [x] Create `scripts/02_build_kernel.sh` (Kernel download, verify checksum, build)
+- [x] Create GCC 15 / C23 compatibility patch (`kernel/patches/0001-gcc15-c23-realmode-gnu11.patch`)
+- [x] Create minimal BusyBox initramfs generator (`initramfs/build_initramfs.sh`)
+- [x] Test and verify early kernel + initramfs boot in QEMU at 512M RAM (Verified PASS)
 
 ### Stage 3: Base Rootfs & OpenRC
 - [ ] Create rootfs assembly script (`scripts/03_assemble_rootfs.sh`)

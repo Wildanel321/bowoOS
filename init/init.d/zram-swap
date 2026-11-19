@@ -1,0 +1,73 @@
+#!/sbin/openrc-run
+# ==============================================================================
+# Lite Office OS — Dynamic ZRAM Swap Auto-Scaler Service (OpenRC)
+# ==============================================================================
+description="Initializes compressed RAM swap based on physical hardware capacity"
+
+depend() {
+    keyword -prefix -vserver
+    before bootmisc
+}
+
+start() {
+    ebegin "Starting Lite Office ZRAM compressed swap"
+
+    # 1. Read physical memory in KB
+    local mem_total_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 524288)
+    local zram_size_kb=0
+
+    # 2. Scale ZRAM: 150% for <=1GB, 100% for >1GB
+    if [ "$mem_total_kb" -le 1048576 ]; then
+        zram_size_kb=$(( mem_total_kb * 15 / 10 ))
+    else
+        zram_size_kb=$mem_total_kb
+    fi
+
+    local zram_size_bytes=$(( zram_size_kb * 1024 ))
+    local zram_size_mb=$(( zram_size_kb / 1024 ))
+
+    # 3. Ensure zram module is loaded
+    if [ ! -e /sys/block/zram0 ]; then
+        modprobe zram 2>/dev/null || true
+    fi
+
+    if [ ! -e /sys/block/zram0 ]; then
+        eerror "ZRAM kernel interface /sys/block/zram0 not available"
+        eend 1
+        return 1
+    fi
+
+    # 4. Select best available compression algorithm
+    local best_comp="lzo"
+    local avail_comp=$(cat /sys/block/zram0/comp_algorithm 2>/dev/null || echo "lzo")
+    if echo "$avail_comp" | grep -q "zstd"; then
+        best_comp="zstd"
+    elif echo "$avail_comp" | grep -q "lz4"; then
+        best_comp="lz4"
+    fi
+
+    echo "$best_comp" > /sys/block/zram0/comp_algorithm 2>/dev/null || true
+
+    # 5. Set disksize & initialize swap
+    echo "$zram_size_bytes" > /sys/block/zram0/disksize
+    mkswap -L "LITE_ZRAM" /dev/zram0 >/dev/null 2>&1
+    swapon -p 100 /dev/zram0
+
+    # 6. Tune swappiness for maximum ZRAM responsiveness
+    sysctl -q -w vm.swappiness=100
+    sysctl -q -w vm.page-cluster=0
+
+    einfo "ZRAM swap active: ${zram_size_mb} MB using algorithm [${best_comp}]"
+    eend 0
+}
+
+stop() {
+    ebegin "Stopping Lite Office ZRAM compressed swap"
+    if grep -q "/dev/zram0" /proc/swaps 2>/dev/null; then
+        swapoff /dev/zram0 2>/dev/null || true
+    fi
+    if [ -f /sys/block/zram0/reset ]; then
+        echo 1 > /sys/block/zram0/reset 2>/dev/null || true
+    fi
+    eend 0
+}

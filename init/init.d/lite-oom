@@ -1,0 +1,22 @@
+#!/sbin/openrc-run
+# ==============================================================================
+# Lite Office OS — Out-of-Memory Supervisor Daemon (OpenRC)
+# ==============================================================================
+description="Supervises memory pressure to prevent system hard-freezing"
+
+command="/usr/bin/earlyoom"
+command_args="-m 4 -s 10 -r 60 --avoid '(Xorg|openbox|init|udevd)'"
+command_background=true
+pidfile="/run/lite-oom.pid"
+
+depend() {
+    after bootmisc
+}
+
+start_pre() {
+    # If earlyoom binary is not installed, fail gracefully without stopping boot
+    if [ ! -x /usr/bin/earlyoom ]; then
+        ewarn "earlyoom executable not present; running with kernel default OOM killer"
+        return 0
+    fi
+}

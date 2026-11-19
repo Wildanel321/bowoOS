@@ -63,3 +63,32 @@ This file serves as an immutable, timestamped record of PRAR (Perceive, Reason, 
   - ZRAM device initialized (`zram: Added device: zram0`).
   - Initramfs `/init` executed cleanly and displayed the Lite Office OS boot banner.
   - Interactive maintenance shell entered successfully without kernel panics or crashes.
+
+---
+
+## [2026-11-19T14:15:00+07:00] Stage 3: Base Root Filesystem Construction & OpenRC Init Integration
+
+### 1. Perceive
+- **Input**: Assemble a minimal, fully functional root filesystem with standard Linux hierarchy, OpenRC init system, dynamic low-memory services (`zram-swap`, `lite-profile-detect`, `lite-oom`), unprivileged user `liteuser`, and verified QEMU ext4 boot on 512 MB RAM.
+- **Artifacts**: `scripts/03_assemble_rootfs.sh`, `rootfs/base_skeleton/`, `init/init.d/zram-swap`, `init/init.d/lite-profile-detect`, `init/init.d/lite-oom`, `tests/test_rootfs_boot.sh`.
+
+### 2. Reason & Engineering Diagnostics
+- **Diagnostic 1 (Debootstrap Chroot Useradd Group Dependencies)**:
+  - *Symptom*: `useradd -G ... liteuser` failed during automated base installation because desktop groups (`netdev`, `plugdev`) do not exist in minimal `minbase` debootstrap.
+  - *Resolution*: Added idempotent pre-creation loop (`for grp in sudo video audio plugdev input netdev; do groupadd -f "$grp"; done`) prior to user provisioning.
+- **Diagnostic 2 (OpenRC Direct Init vs Inittab Gettys)**:
+  - *Symptom*: When `/sbin/init` links directly to `openrc-init` (pure OpenRC), `/etc/inittab` is bypassed and no login prompt appeared on serial console.
+  - *Resolution*: Configured OpenRC dynamic service symlinks (`ln -sf agetty /etc/init.d/agetty.tty1` and `ln -sf agetty /etc/init.d/agetty.ttyS0`), registered them into the `default` runlevel, and verified supervised respawning.
+- **Diagnostic 3 (OpenRC Service Dependency Decoupling)**:
+  - *Symptom*: Services declaring `need localmount` generated dependency warnings because Debian OpenRC handles root mounting directly in early sysinit without a discrete `localmount` init script.
+  - *Resolution*: Decoupled `zram-swap` to use `keyword -prefix -vserver` and `before bootmisc`, and sequenced `lite-profile-detect` after `zram-swap`.
+
+### 3. Act & Verify
+- Debootstrapped clean minimal rootfs (`/var/tmp/liteoffice-build/rootfs_x86_64`, 167 MB).
+- Injected custom compiled kernel modules for `6.6.78-lite` and generated depmod indices.
+- Packaged 1.5 GB ext4 disk image and executed automated boot test in QEMU at 512 MB RAM (`tests/test_rootfs_boot.sh x86_64 512M`):
+  - Init System: `OpenRC init version 0.45.2 starting` [PASS]
+  - Compressed ZRAM Swap: `ZRAM swap active: 702 MB using algorithm [zstd]` [PASS]
+  - Hardware Profile Detector: `Detected Profile: 512 MB Tier (Ultra-Lightweight Office Mode)` [PASS]
+  - Memory Supervisor: `lite-oom` started successfully [PASS]
+  - User Login Prompt: `liteoffice login: ` displayed on `ttyS0` [PASS]

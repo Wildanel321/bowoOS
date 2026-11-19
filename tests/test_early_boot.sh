@@ -47,12 +47,13 @@ QEMU_ARGS=(
     -monitor none
 )
 
-# Use hardware acceleration if KVM is available
-if [ -w /dev/kvm ]; then
+# Use hardware acceleration if KVM is available and functional
+if qemu-system-x86_64 -accel kvm -display none -serial none </dev/null >/dev/null 2>&1; then
     echo -e "    ${GREEN}[+] KVM Hardware Acceleration enabled!${NC}"
-    QEMU_ARGS+=(-enable-kvm -cpu host)
+    QEMU_ARGS+=(-accel kvm -cpu host)
 else
     echo -e "    ${YELLOW}[!] Running in TCG software emulation mode.${NC}"
+    QEMU_ARGS+=(-accel tcg -cpu qemu64)
 fi
 
 # Run QEMU in background

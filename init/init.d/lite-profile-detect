@@ -1,0 +1,54 @@
+#!/sbin/openrc-run
+# ==============================================================================
+# Lite Office OS — Memory Hardware Profile Detector (OpenRC)
+# ==============================================================================
+description="Detects available physical RAM and sets system profile flags"
+
+depend() {
+    after zram-swap
+}
+
+start() {
+    ebegin "Detecting hardware memory profile"
+
+    local mem_total_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 524288)
+    local profile_file="/etc/lite-profile"
+    mkdir -p /etc
+
+    if [ "$mem_total_kb" -lt 786432 ]; then
+        # Tier 512 MB
+        cat << 'EOF' > "$profile_file"
+LITE_TIER="512m"
+DEFAULT_OFFICE="abiword"
+DEFAULT_SPREADSHEET="gnumeric"
+DEFAULT_PDF="qpdfview"
+DEFAULT_BROWSER="badger"
+DESKTOP_COMPOSITING="none"
+EOF
+        einfo "Detected Profile: 512 MB Tier (Ultra-Lightweight Office Mode)"
+    elif [ "$mem_total_kb" -lt 1572864 ]; then
+        # Tier 1 GB
+        cat << 'EOF' > "$profile_file"
+LITE_TIER="1g"
+DEFAULT_OFFICE="libreoffice --writer"
+DEFAULT_SPREADSHEET="libreoffice --calc"
+DEFAULT_PDF="qpdfview"
+DEFAULT_BROWSER="firefox-esr --single-process"
+DESKTOP_COMPOSITING="none"
+EOF
+        einfo "Detected Profile: 1 GB Tier (Optimized LibreOffice Mode)"
+    else
+        # Tier 2 GB+
+        cat << 'EOF' > "$profile_file"
+LITE_TIER="2g"
+DEFAULT_OFFICE="libreoffice --writer"
+DEFAULT_SPREADSHEET="libreoffice --calc"
+DEFAULT_PDF="qpdfview"
+DEFAULT_BROWSER="firefox-esr"
+DESKTOP_COMPOSITING="picom"
+EOF
+        einfo "Detected Profile: 2 GB Tier (Full LibreOffice & Firefox ESR Mode)"
+    fi
+
+    eend 0
+}

@@ -6,8 +6,8 @@
 | :--- | :--- | :--- | :--- |
 | **Stage 1** | Foundation, Documentation & Host Check | **COMPLETED** | Specifications, Project Docs, Repository Tree, Host Validator |
 | **Stage 2** | Kernel 6.6 LTS & Minimal BusyBox Initramfs | **COMPLETED** | `x86_64_lite_defconfig`, compiled `vmlinuz-6.6-lite`, initramfs, QEMU early boot (Verified) |
-| **Stage 3** | Base Rootfs & OpenRC Init Integration | **NEXT (PENDING APPROVAL)** | Base filesystem skeleton, OpenRC services (`zram-swap`), eudev, shell login |
-| **Stage 4** | X11 Display Server & Openbox Desktop Shell | PENDING | Xorg minimal, Openbox WM, Tint2 panel, PCManFM desktop, themes |
+| **Stage 3** | Base Rootfs & OpenRC Init Integration | **COMPLETED** | Base filesystem skeleton, OpenRC services (`zram-swap`, `lite-profile-detect`, `lite-oom`), agetty consoles, unprivileged `liteuser` (Verified in QEMU at 512M) |
+| **Stage 4** | X11 Display Server & Openbox Desktop Shell | **NEXT (PENDING APPROVAL)** | Xorg minimal, Openbox WM, Tint2 panel, PCManFM desktop, clean theme |
 | **Stage 5** | Office Suite & Document Processing Stack | PENDING | AbiWord, Gnumeric, LibreOffice, PDF viewer, CUPS printing daemon |
 | **Stage 6** | RAM Optimization Daemons & Memory Profiling | PENDING | ZRAM autoscaler, earlyoom supervisor, sysctl low-RAM tuning |
 | **Stage 7** | Offline Installer & Live Hybrid ISO | PENDING | CLI/TUI installer, GRUB EFI/BIOS hybrid ISO generator |
@@ -39,11 +39,12 @@
 - [x] Test and verify early kernel + initramfs boot in QEMU at 512M RAM (Verified PASS)
 
 ### Stage 3: Base Rootfs & OpenRC
-- [ ] Create rootfs assembly script (`scripts/03_assemble_rootfs.sh`)
-- [ ] Configure OpenRC runlevels and `/etc/inittab`
-- [ ] Implement `init/init.d/zram-swap` service
-- [ ] Implement `init/init.d/lite-profile-detect` service
-- [ ] Configure default unprivileged user `liteuser` and permissions
+- [x] Create rootfs assembly script (`scripts/03_assemble_rootfs.sh`)
+- [x] Configure OpenRC runlevels and `/etc/inittab`
+- [x] Implement `init/init.d/zram-swap` service
+- [x] Implement `init/init.d/lite-profile-detect` service
+- [x] Configure default unprivileged user `liteuser` and permissions
+- [x] Test and verify full OpenRC boot and getty login in QEMU at 512M RAM (Verified PASS)
 
 ### Stage 4: Graphical Desktop
 - [ ] Configure minimal Xorg server and video drivers

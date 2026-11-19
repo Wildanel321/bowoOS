@@ -1,0 +1,15 @@
+# Build artifacts and caches
+build/
+output/
+iso_root/
+*.iso
+*.img
+*.qcow2
+*.squashfs
+
+# Temporary files
+/var/tmp/
+/tmp/
+*.log
+*.swp
+*~

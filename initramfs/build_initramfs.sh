@@ -92,9 +92,13 @@ echo "=================================================================="
 ROOT_DEV=""
 INIT_BIN="/sbin/init"
 BREAK_FLAG=0
+LIVE_BOOT=0
 
 for param in $(cat /proc/cmdline); do
     case "$param" in
+        boot=live|root=live|live)
+            LIVE_BOOT=1
+            ;;
         root=*)
             ROOT_DEV="${param#root=}"
             ;;
@@ -106,6 +110,62 @@ for param in $(cat /proc/cmdline); do
             ;;
     esac
 done
+
+# ------------------------------------------------------------------------------
+# Live ISO Boot Mode (SquashFS + Tmpfs Overlay)
+# ------------------------------------------------------------------------------
+if [ "$LIVE_BOOT" -eq 1 ] || [ "$ROOT_DEV" = "live" ]; then
+    echo "[*] Searching for LiteOffice OS live boot media..."
+    mkdir -p /cdrom /rofs /cow /newroot
+    LIVE_DEV=""
+
+    # Try finding device by volume label first
+    LIVE_DEV=$(findfs LABEL="LITEOFFICE_LIVE" 2>/dev/null || blkid -L "LITEOFFICE_LIVE" 2>/dev/null || echo "")
+
+    # Fallback: scan all block devices for /live/filesystem.squashfs
+    if [ -z "$LIVE_DEV" ]; then
+        for i in 1 2 3 4 5; do
+            for dev in /dev/sr* /dev/vd* /dev/sd*; do
+                if [ -b "$dev" ]; then
+                    mount -o ro "$dev" /cdrom 2>/dev/null || true
+                    if [ -f "/cdrom/live/filesystem.squashfs" ]; then
+                        LIVE_DEV="$dev"
+                        break 2
+                    fi
+                    umount /cdrom 2>/dev/null || true
+                fi
+            done
+            sleep 1
+        done
+    else
+        mount -o ro "$LIVE_DEV" /cdrom 2>/dev/null || true
+    fi
+
+    if [ -f "/cdrom/live/filesystem.squashfs" ]; then
+        echo "[+] Found Live media at $LIVE_DEV. Mounting compressed rootfs..."
+        mount -t squashfs -o loop /cdrom/live/filesystem.squashfs /rofs
+        
+        # Setup tmpfs overlay for read-write live session in memory
+        mount -t tmpfs -o mode=0755 tmpfs /cow
+        mkdir -p /cow/upper /cow/work
+        mount -t overlay overlay -o lowerdir=/rofs,upperdir=/cow/upper,workdir=/cow/work /newroot
+        
+        # Make rootfs available for installer rsync
+        mkdir -p /newroot/run/live/rootfs
+        mount --bind /rofs /newroot/run/live/rootfs 2>/dev/null || true
+        
+        echo "[+] Transitioning to Live LiteOffice OS session..."
+        umount /run /sys /proc 2>/dev/null || true
+        exec switch_root /newroot "$INIT_BIN"
+    else
+        echo "[-] ERROR: /live/filesystem.squashfs not found on live boot media!"
+        exec /bin/sh </dev/console >/dev/console 2>&1
+    fi
+fi
+
+# ------------------------------------------------------------------------------
+# Direct Block Device Root Boot Mode
+# ------------------------------------------------------------------------------
 
 # If break is requested or no root specified, drop to recovery/test shell
 if [ "$BREAK_FLAG" -eq 1 ] || [ -z "$ROOT_DEV" ]; then

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Install LiteOffice OS
+Comment=Install LiteOffice OS permanently to your computer
+Exec=lxterminal -e sudo /usr/local/bin/lite-installer
+Icon=liteoffice
+Terminal=false
+Categories=System;
+StartupNotify=true

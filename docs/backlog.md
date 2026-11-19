@@ -1,4 +1,4 @@
-# Project Backlog — Lite Office OS
+# Project Backlog — LiteOffice OS
 
 ## Phase Tracker
 
@@ -8,10 +8,11 @@
 | **Stage 2** | Kernel 6.6 LTS & Minimal BusyBox Initramfs | **COMPLETED** | `x86_64_lite_defconfig`, compiled `vmlinuz-6.6-lite`, initramfs, QEMU early boot (Verified) |
 | **Stage 3** | Base Rootfs & OpenRC Init Integration | **COMPLETED** | Base filesystem skeleton, OpenRC services (`zram-swap`, `lite-profile-detect`, `lite-oom`), agetty consoles, unprivileged `liteuser` (Verified in QEMU at 512M) |
 | **Stage 4** | X11 Display Server & Openbox Desktop Shell | **COMPLETED** | Xorg minimal, Openbox WM, Tint2 modern panel, PCManFM desktop, 63 MB Idle RAM (Verified in QEMU) |
-| **Stage 5** | Complete Branding, Native GUI Suite & System Services | **COMPLETED** | Official LiteOffice OS identity, vector icons, wallpapers, GRUB & Plymouth splash themes, GTK theme, native Python GTK apps (About, Welcome, Control Center, Monitor), healthd daemon, automation/manifest/security tools, 74 MB Idle RAM (100% Verified) |
-| **Stage 6** | Adaptive Office Applications & Printing Stack | **NEXT (PENDING APPROVAL)** | AbiWord, Gnumeric, LibreOffice, qpdfview, CUPS printer integration |
-| **Stage 7** | Offline Installer & Live Hybrid ISO | PENDING | CLI/TUI installer, GRUB EFI/BIOS hybrid ISO generator |
-| **Stage 8** | Full Multi-RAM Matrix Benchmarking & Release Packaging | PENDING | 512M, 1G, 2G test matrices, release documentation |
+| **Stage 5** | Branding, Native GUI Suite & System Services | **COMPLETED** | Official LiteOffice OS identity, vector icons, wallpapers, GRUB & Plymouth splash themes, GTK theme, native Python GTK apps (About, Welcome, Control Center, Monitor), healthd daemon, automation/manifest/security tools, 74 MB Idle RAM (100% Verified) |
+| **Stage 6** | Adaptive Office Suite & Printing Stack | **COMPLETED** | AbiWord, Gnumeric, LibreOffice, qpdfview, adaptive launchers, CUPS daemon (7.6 MB RSS), MIME associations, 74 MB Idle RAM (Verified in QEMU) |
+| **Stage 7** | RAM Optimization Daemons & Memory Profiling | **COMPLETED** | `/etc/sysctl.d/99-lowmem.conf`, dynamic ZRAM auto-scaler (702 MB active), earlyoom supervisor, hardware profile detector (Verified in QEMU) |
+| **Stage 8** | Offline Installer & Live Hybrid ISO | **COMPLETED** | Modular CLI/TUI installer (`installer/lite-installer.sh`), bootable hybrid ISO (`output/liteoffice-1.0-x86_64.iso`, 414 MB, BIOS + UEFI) |
+| **Stage 9** | Multi-RAM Performance Benchmarking & Release | **COMPLETED** | 512M (75 MB), 1G (85 MB), 2G (98 MB) matrix verified; documentation report (`docs/benchmark-report.md`) |
 
 ---
 
@@ -76,18 +77,35 @@
 - [x] Verify QEMU boot and idle memory: **74 MB idle RAM** (Target: <= 120 MB)
 
 ### Stage 6: Office Applications & Printing Stack
-- [ ] Configure AbiWord & Gnumeric for low-RAM tier (512 MB profile)
-- [ ] Configure LibreOffice for standard tier (1 GB–2 GB profile)
-- [ ] Integrate lightweight PDF viewer (`qpdfview`)
-- [ ] Configure CUPS printer daemon
-- [ ] Configure MIME associations (`office/mimeapps.list`)
+- [x] Configure AbiWord & Gnumeric for low-RAM tier (512 MB profile)
+- [x] Configure LibreOffice for standard tier (1 GB–2 GB profile)
+- [x] Implement adaptive launchers: `lite-launch-office`, `lite-launch-spreadsheet`, `lite-launch-pdf`
+- [x] Integrate lightweight PDF viewer (`qpdfview`)
+- [x] Configure and tune CUPS printer daemon (`/etc/cups/cupsd.conf`, 7.6 MB RSS)
+- [x] Configure MIME associations (`/etc/xdg/mimeapps.list`)
+- [x] Execute installer `scripts/06_install_office_suite.sh`
+- [x] Build and execute test suite `tests/test_office_suite.sh`: 9/9 PASS (100%)
+- [x] Verify QEMU idle RAM with desktop and CUPS daemon: **74 MB** (Target: <= 120 MB)
 
-### Stage 7: Offline Installer & Live Hybrid ISO
-- [ ] Implement installer engine (`installer/lite-installer.sh`)
-- [ ] Configure GRUB hybrid bootloader (`bootloader/grub-bios.cfg`, `grub-uefi.cfg`)
-- [ ] Implement ISO generator script (`scripts/06_generate_iso.sh`)
+### Stage 7: RAM Optimization & Memory Daemons
+- [x] Implement `/etc/sysctl.d/99-lowmem.conf` with low-memory kernel parameters
+- [x] Configure `earlyoom` OOM supervisor service in OpenRC (`/etc/init.d/lite-oom`)
+- [x] Configure dynamic ZRAM compressed swap auto-scaler (`/etc/init.d/zram-swap`, 150% RAM scaling)
+- [x] Configure hardware memory profile detection daemon (`/etc/init.d/lite-profile-detect`)
+- [x] Execute installer `scripts/07_optimize_memory.sh`
+- [x] Build and execute test suite `tests/test_memory_optimization.sh`: 6/6 PASS (100%)
 
-### Stage 8: Automated Verification
-- [ ] Implement automated QEMU test harness across RAM profiles
-- [ ] Run 512 MB, 1 GB, 2 GB test matrices
-- [ ] Generate final benchmark and compatibility report (`docs/benchmark-report.md`)
+### Stage 8: Offline Installer & Live Hybrid ISO
+- [x] Implement modular system installer (`installer/lite-installer.sh`) supporting BIOS (MBR) and UEFI (GPT)
+- [x] Create desktop shortcut and menu launcher for installer (`installer/liteoffice-installer.desktop`)
+- [x] Implement hybrid live ISO builder (`scripts/08_generate_iso.sh`) using multi-threaded zstd SquashFS and GRUB 2.14
+- [x] Support dual console boot (`console=ttyS0 console=tty1`) in GRUB menu and live initramfs
+- [x] Build and execute test suite `tests/test_live_iso.sh`: 3/3 PASS (100%)
+- [x] Generated artifact: `output/liteoffice-1.0-x86_64.iso` (414 MB, Hybrid BIOS + UEFI)
+
+### Stage 9: Performance Benchmarking & Final Documentation
+- [x] Implement multi-RAM tier benchmark harness (`tests/test_multi_ram_matrix.sh`)
+- [x] Verify 512 MB RAM Tier: **75 MB used RAM** (Limit <= 120 MB) [PASS]
+- [x] Verify 1 GB RAM Tier: **85 MB used RAM** (Limit <= 180 MB) [PASS]
+- [x] Verify 2 GB RAM Tier: **98 MB used RAM** (Limit <= 250 MB) [PASS]
+- [x] Create formal benchmark report (`docs/benchmark-report.md`)

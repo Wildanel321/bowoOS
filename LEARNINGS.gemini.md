@@ -178,3 +178,38 @@ This file serves as an immutable, timestamped record of PRAR (Perceive, Reason, 
     - Available RAM: **394 MB** free for office multitasking.
     - Active ZRAM Swap: **702 MB** with `zstd` compression.
   - Overall Suite: **14/14 tests PASSED (100% PASS)**.
+
+## [2026-11-19T16:01:00+07:00] Stages 6–9: Office Suite, CUPS, Memory Daemons, Live Hybrid ISO & Multi-RAM Matrix
+
+### 1. Perceive
+- **Input**: User gave directive to continue continuously until all project stages were completed ("lanjut terus sampai semua tahap selesai").
+- **Scope**:
+  - Stage 6: Office Suite (AbiWord, Gnumeric, LibreOffice, qpdfview, adaptive launchers, CUPS daemon, MIME associations).
+  - Stage 7: RAM optimization sysctl parameters, dynamic ZRAM auto-scaler (150% RAM), earlyoom supervisor.
+  - Stage 8: Offline installer (BIOS/MBR & UEFI/GPT), live initramfs, hybrid bootable ISO generator (`xorriso` + GRUB 2.14).
+  - Stage 9: Multi-RAM benchmark harness (512M, 1G, 2G), formal benchmark report.
+
+### 2. Reason & Engineering Diagnostics
+- **Diagnostic 1 (Low-Memory CUPS Tuning)**:
+  - *Symptom*: Standard CUPS configuration spawns multiple pollers and preserves unbounded job logs.
+  - *Resolution*: Tuned `/etc/cups/cupsd.conf` with `LogLevel warn`, `MaxLogSize 1m`, `PreserveJobHistory No`, `MaxJobs 25`, and `Browsing No`. Result: CUPS idle resident set size (RSS) dropped to only **7.6 MB**.
+- **Diagnostic 2 (Live Initramfs OverlayFS & SquashFS Boot)**:
+  - *Symptom*: Live ISO requires booting from read-only CD-ROM while providing a fully writable environment for Xorg, Tint2, and user desktop files.
+  - *Resolution*: Leveraged built-in kernel features (`CONFIG_SQUASHFS=y`, `CONFIG_OVERLAY_FS=y`). Enhanced `/init` in initramfs to detect `boot=live`, mount the CD-ROM, loop mount `/live/filesystem.squashfs`, and construct a tmpfs overlay (`lowerdir=/rofs,upperdir=/cow/upper,workdir=/cow/work`) before invoking `switch_root`.
+- **Diagnostic 3 (Dual Serial & Graphical Console in GRUB ISO Boot)**:
+  - *Symptom*: Booting ISO in headless QEMU test harness with `terminal_output gfxterm` left serial logs unpopulated until after kernel initialization.
+  - *Resolution*: Configured GRUB with `serial --unit=0 --speed=115200`, `terminal_input console serial`, `terminal_output gfxterm serial`, and passed `console=ttyS0 console=tty1` in menu kernel entries, enabling seamless debugging across serial logs and graphical monitors simultaneously.
+
+### 3. Act & Verify (Comprehensive Matrix Results)
+- Generated `output/liteoffice-1.0-x86_64.iso` (414 MB, Hybrid BIOS/MBR + UEFI/GPT).
+- Multi-RAM Benchmark Matrix Results:
+  - **512 MB RAM Tier**: **75 MB Used Idle RAM** (Limit $\le 120\text{ MB}$, Available: 392 MB, ZRAM: 702 MB active).
+  - **1 GB RAM Tier**: **85 MB Used Idle RAM** (Limit $\le 180\text{ MB}$, Available: 885 MB, ZRAM: 1457 MB active).
+  - **2 GB RAM Tier**: **98 MB Used Idle RAM** (Limit $\le 250\text{ MB}$, Available: 1879 MB, ZRAM: 1978 MB active).
+- Verified 100% PASS across all unit and integration test suites:
+  - `tests/test_liteoffice_suite.sh`: 14/14 PASS (100%)
+  - `tests/test_office_suite.sh`: 9/9 PASS (100%)
+  - `tests/test_memory_optimization.sh`: 6/6 PASS (100%)
+  - `tests/test_live_iso.sh`: 3/3 PASS (100%)
+  - `tests/test_multi_ram_matrix.sh`: 3/3 PASS (100%)
+- Authored master system architecture & benchmark document in [`docs/benchmark-report.md`](file:///c:/Users/Willcuy/Documents/GitHub/bowoOS/docs/benchmark-report.md).

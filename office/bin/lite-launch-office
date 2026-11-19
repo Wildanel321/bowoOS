@@ -1,0 +1,36 @@
+#!/bin/bash
+# ==============================================================================
+# LiteOffice OS — Adaptive Word Processor Launcher
+# Launches AbiWord on <= 512M systems; LibreOffice Writer on >= 1G systems.
+# ==============================================================================
+set -euo pipefail
+
+TOTAL_RAM_MB=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 512)
+
+# Source detected profile if available
+if [ -f /etc/lite-profile ]; then
+    . /etc/lite-profile
+fi
+
+PROFILE="${LITE_PROFILE:-lite}"
+
+if [ "$PROFILE" = "lite" ] || [ "$TOTAL_RAM_MB" -lt 850 ]; then
+    if which abiword >/dev/null 2>&1; then
+        exec abiword "$@"
+    elif which libreoffice >/dev/null 2>&1; then
+        exec libreoffice --writer "$@"
+    elif which mousepad >/dev/null 2>&1; then
+        exec mousepad "$@"
+    fi
+else
+    if which libreoffice >/dev/null 2>&1; then
+        exec libreoffice --writer "$@"
+    elif which abiword >/dev/null 2>&1; then
+        exec abiword "$@"
+    elif which mousepad >/dev/null 2>&1; then
+        exec mousepad "$@"
+    fi
+fi
+
+echo "Error: No suitable word processor found." >&2
+exit 1

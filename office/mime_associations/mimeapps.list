@@ -1,0 +1,13 @@
+[Default Applications]
+application/pdf=PDF-Viewer.desktop;qpdfview.desktop;
+application/x-pdf=PDF-Viewer.desktop;qpdfview.desktop;
+application/msword=Word-Processor.desktop;abiword.desktop;
+application/vnd.openxmlformats-officedocument.wordprocessingml.document=Word-Processor.desktop;abiword.desktop;
+application/vnd.oasis.opendocument.text=Word-Processor.desktop;abiword.desktop;
+application/rtf=Word-Processor.desktop;abiword.desktop;
+text/rtf=Word-Processor.desktop;abiword.desktop;
+text/plain=mousepad.desktop;
+application/vnd.ms-excel=Spreadsheet.desktop;gnumeric.desktop;
+application/vnd.openxmlformats-officedocument.spreadsheetml.sheet=Spreadsheet.desktop;gnumeric.desktop;
+application/vnd.oasis.opendocument.spreadsheet=Spreadsheet.desktop;gnumeric.desktop;
+text/csv=Spreadsheet.desktop;gnumeric.desktop;

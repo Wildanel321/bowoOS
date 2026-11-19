@@ -1,8 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=Spreadsheet
-Comment=Analyze spreadsheets (Adaptive Profile)
-Exec=/usr/local/bin/lite-launch-spreadsheet
-Icon=x-office-spreadsheet
+Name=Spreadsheet (Adaptive)
+Comment=Edit spreadsheets (Gnumeric or LibreOffice Calc based on RAM)
+Exec=/usr/local/bin/lite-launch-spreadsheet %U
+Icon=gnumeric
 Terminal=false
-Categories=Office;
+Categories=Office;Spreadsheet;
+MimeType=application/vnd.ms-excel;application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;application/vnd.oasis.opendocument.spreadsheet;text/csv;

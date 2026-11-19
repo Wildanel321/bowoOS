@@ -1,8 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=Word Processor
-Comment=Edit documents (Adaptive Profile)
-Exec=/usr/local/bin/lite-launch-office
-Icon=accessories-text-editor
+Name=Word Processor (Adaptive)
+Comment=Edit documents (AbiWord or LibreOffice Writer based on RAM)
+Exec=/usr/local/bin/lite-launch-office %U
+Icon=abiword
 Terminal=false
-Categories=Office;
+Categories=Office;WordProcessor;
+MimeType=application/msword;application/vnd.openxmlformats-officedocument.wordprocessingml.document;application/vnd.oasis.opendocument.text;text/rtf;text/plain;

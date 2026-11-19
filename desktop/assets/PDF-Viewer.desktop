@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=PDF Viewer
+Comment=View PDF documents with minimal memory footprint
+Exec=/usr/local/bin/lite-launch-pdf %U
+Icon=qpdfview
+Terminal=false
+Categories=Office;Viewer;
+MimeType=application/pdf;application/x-pdf;

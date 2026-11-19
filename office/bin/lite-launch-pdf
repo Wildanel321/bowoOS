@@ -1,0 +1,14 @@
+#!/bin/bash
+# ==============================================================================
+# LiteOffice OS — Lightweight PDF Viewer Launcher
+# ==============================================================================
+set -euo pipefail
+
+if which qpdfview >/dev/null 2>&1; then
+    exec qpdfview "$@"
+elif which evince >/dev/null 2>&1; then
+    exec evince "$@"
+fi
+
+echo "Error: No suitable PDF viewer found." >&2
+exit 1

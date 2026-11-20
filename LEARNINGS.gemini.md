@@ -412,3 +412,39 @@ This file serves as an immutable, timestamped record of PRAR (Perceive, Reason, 
 - Verified `liteoffice-about --cli` and GTK3 compilation.
 - Rebuilt Live Hybrid ISO `output/liteoffice-1.0-x86_64.iso`.
 
+
+
+## Cycle 5: Guru Meditation, udev/zram Boot Deadlock, Execute File Dialog, Window Close Fullscreen, and Physical HDD Installer with Wi-Fi/LAN Drivers
+
+### 1. Perceive
+- **Input**:
+  1. VirtualBox Guru Meditation 1155 (`VINF_EM_TRIPLE_FAULT`) when loading kernel & initramfs on raw disk VM pass-through.
+  2. Boot console errors: `swapon: cannot open /dev/zram0: No such file or directory`, `ERROR: udev needs service(s) umountfs mountkernfs, umountroot`, `cannot start plymouth as udev would not start`, `Invalid card number '0'`.
+  3. Annoying desktop prompt on launching apps: `"Execute File: This text file 'Control Center' seems to be an executable script. What do you want to do with it? [Execute] [Execute in Terminal] [Open] [Cancel]"`. Duplicate "About" icons on desktop.
+  4. Window closing behavior: clicking `[x]` did not smoothly close the window and instead maximized / made the window fullscreen.
+  5. OS installation failed on physical HDD pass-through (`PhysicalDrive3`), requesting pre-installed Wi-Fi and LAN drivers and minimum 8 GB swap.
+- **Artifacts Analyzed**: `BowoOS.vbox`, `VBox.log`, `installer/liteoffice-installer.py`, `desktop/openbox/rc.xml`, `desktop/pcmanfm/libfm.conf`, `init/init.d/udev`, `init/init.d/zram-swap`, `kernel/config/x86_64_lite_defconfig`.
+
+### 2. Reason & Engineering Diagnostics
+- **Diagnostic 1 (VirtualBox Guru Meditation & Hypervisor Enlightenment)**:
+  - When VirtualBox runs with Windows Hyper-V / NEM enabled, kernels lacking `CONFIG_PARAVIRT`, `CONFIG_HYPERVISOR_GUEST`, and `CONFIG_KVM_GUEST` can raise GP faults on raw MSR operations (`WRMSR 00002ff0`) or early paging switches before IDT initialization, triggering a triple fault.
+  - Adding `CONFIG_HYPERVISOR_GUEST=y`, `CONFIG_PARAVIRT=y`, `CONFIG_PARAVIRT_SPINLOCKS=y`, and `CONFIG_KVM_GUEST=y` guarantees stable execution under VirtualBox, KVM, and VMware.
+- **Diagnostic 2 (OpenRC udev & zram-swap Dependency Deadlock)**:
+  - Debian's default SysVinit udev script declared LSB dependencies on `mountkernfs` and `umountfs`, which don't exist in OpenRC, causing OpenRC to abort starting `udev`.
+  - Without `udev`, devnodes (`/dev/zram0`, physical disk nodes) were never dynamically created, causing `swapon: cannot open /dev/zram0: No such file or directory`.
+  - Replaced with native OpenRC `udev` and resilient `zram-swap` using `mknod` fallback and `hotadd`.
+- **Diagnostic 3 (PCManFM Execute File Prompt & Window Close vs Fullscreen)**:
+  - LibFM defaults `quick_exec=0` when `libfm.conf` is missing, triggering a prompt on every desktop shortcut. Added `quick_exec=1` to `/etc/xdg/libfm/libfm.conf` and `~/.config/libfm/libfm.conf`.
+  - Openbox `rc.xml` was missing `<context name="Close">`, falling back to `<context name="Titlebar">` where double-click toggled maximization. Added dedicated `<context name="Close">` mapping click and double-click to `<action name="Close"/>`.
+- **Diagnostic 4 (Physical HDD Pass-through & Network Drivers)**:
+  - `lsblk -J` boolean check `bool("0") == True` erroneously marked writable disks as read-only.
+  - Substring matching `if live_medium and name in live_medium` excluded physical disks like `sda` when live media was `sda1`.
+  - Replaced with direct `/sys/block` inspection, clean partition unmounting (`swapoff`, `umount -f -l`), partition table wiping (`wipefs -a -f`), and enforced minimum 8 GB swap.
+  - Added full Wi-Fi (`iwlwifi`, `rtw88`, `ath9k`/`ath10k`, `brcmfmac`, `mt76`), Ethernet (`e1000`, `e1000e`, `r8169`, tg3, alx), and NVMe drivers + non-free firmwares + NetworkManager with `nm-applet` tray.
+
+### 3. Act & Verify
+- Compiled Linux LTS 6.6.78 with virtualization, NVMe, and full networking modules.
+- Built and installed non-free firmwares, `NetworkManager`, and `nm-applet`.
+- Deployed unified Openbox and PCManFM/LibFM configurations.
+- Regenerated bootable Live Hybrid ISO `output/liteoffice-1.0-x86_64.iso` (819 MB).
+- Validated via `tests/test_live_iso.sh` with 100% PASS in QEMU.

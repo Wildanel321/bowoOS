@@ -167,10 +167,11 @@ cp "$PROJECT_ROOT/rootfs/base_skeleton/etc/sysctl.d/99-lowmem.conf" "$ROOTFS_DIR
 # 6. Install Custom OpenRC Services
 echo "[*] Installing custom OpenRC low-memory services..."
 mkdir -p "$ROOTFS_DIR/etc/init.d"
+cp "$PROJECT_ROOT/init/init.d/udev" "$ROOTFS_DIR/etc/init.d/udev"
 cp "$PROJECT_ROOT/init/init.d/zram-swap" "$ROOTFS_DIR/etc/init.d/zram-swap"
 cp "$PROJECT_ROOT/init/init.d/lite-profile-detect" "$ROOTFS_DIR/etc/init.d/lite-profile-detect"
 cp "$PROJECT_ROOT/init/init.d/lite-oom" "$ROOTFS_DIR/etc/init.d/lite-oom"
-chmod +x "$ROOTFS_DIR/etc/init.d"/{zram-swap,lite-profile-detect,lite-oom}
+chmod +x "$ROOTFS_DIR/etc/init.d"/{udev,zram-swap,lite-profile-detect,lite-oom}
 
 # 7. Configure OpenRC Runlevels inside Chroot
 echo "[*] Registering services into OpenRC runlevels..."
@@ -184,6 +185,14 @@ chroot "$ROOTFS_DIR" bash -c "
     rc-update add zram-swap boot 2>/dev/null || true
     rc-update add lite-profile-detect default 2>/dev/null || true
     rc-update add lite-oom default 2>/dev/null || true
+
+    # Clean up broken Debian SysVinit services with non-existent dependencies
+    rc-update del pulseaudio-enable-autospawn default 2>/dev/null || true
+    rc-update del plymouth default 2>/dev/null || true
+    rc-update del plymouth-log default 2>/dev/null || true
+    rc-update del hwclock.sh default 2>/dev/null || true
+    [ -f /etc/init.d/procps ] && sed -i 's/Required-Start: mountkernfs/Required-Start:/g' /etc/init.d/procps
+    [ -f /etc/init.d/alsa-utils ] && sed -i '/case \"\$1\" in/a \    [ ! -f /proc/asound/cards ] || ! grep -q \"[0-9]\" /proc/asound/cards && exit 0' /etc/init.d/alsa-utils || true
 "
 
 # 8. Copy Custom Kernel Modules

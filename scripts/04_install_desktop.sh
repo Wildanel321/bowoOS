@@ -218,7 +218,8 @@ fi
 
 # Automatic graphical login on tty1
 if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
-    exec startx > "$HOME/startx.log" 2>&1
+    echo "Starting LiteOffice OS Graphical Desktop..."
+    startx
 fi
 EOF
 

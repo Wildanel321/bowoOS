@@ -302,3 +302,45 @@ This file serves as an immutable, timestamped record of PRAR (Perceive, Reason, 
 - Built fresh Live Hybrid ISO `output/liteoffice-1.0-x86_64.iso` (615 MB).
 - Executed `tests/test_live_iso.sh x86_64` in QEMU: 3/3 tests PASS (100%), verified kernel boot sequence is stable without triple fault or reset loops.
 
+---
+
+## [2026-11-20T13:10:00+07:00] Stage 10: OpenRC Device Handover, Native udev Service & Graphical Desktop Verification
+
+### 1. Perceive
+- **Input**: User provided boot console photograph from VirtualBox displaying cascading OpenRC boot errors:
+  1. `Invalid card number '0'.` (repeating 7 times)
+  2. `swapon: cannot open /dev/zram0: No such file or directory`
+  3. `pulseaudio-enable-autospawn: * ERROR: pulseaudio-enable-autospawn needs service(s) udev`
+  4. `udev needs service(s) umountfs mountkernfs, umountroot`
+  5. `plymouth ; * ERROR: cannot start plymouth as udev would not start`
+  6. Stalled boot at `Starting Common Unix Printing System: cupsdStarting system message bus: dbus.`
+
+### 2. Reason & Engineering Diagnostics
+- **Diagnostic 1 (Missing /dev Device Nodes in switch_root)**:
+  - *Symptom*: `/dev/zram0` could not be opened; DBus crashed with `Failed to generate UUID: Could not open /dev/urandom`.
+  - *Root Cause*: In `initramfs/build_initramfs.sh`, after mounting overlayfs to `/newroot`, `/dev` was not propagated to `/newroot/dev`. Because udev failed to start (see Diagnostic 2), kernel `devtmpfs` was never remounted on `/dev`, leaving `/dev` empty.
+  - *Resolution*: Updated `initramfs/build_initramfs.sh` before `switch_root` to execute:
+    `mkdir -p /newroot/dev && mount --move /dev /newroot/dev 2>/dev/null || mount -t devtmpfs devtmpfs /newroot/dev`.
+- **Diagnostic 2 (Debian SysVinit udev Script Incompatibility with OpenRC)**:
+  - *Symptom*: OpenRC reported `ERROR: udev needs service(s) umountfs mountkernfs, umountroot`.
+  - *Root Cause*: Debian ships `/etc/init.d/udev` with SysVinit LSB headers requiring Debian `initscripts` (`mountkernfs`, etc.). OpenRC rejected the script because those services do not exist.
+  - *Resolution*: Created native OpenRC service `init/init.d/udev` (`#!/sbin/openrc-run`, `command="/lib/systemd/systemd-udevd"`, `provide dev udev`, triggers `udevadm trigger` and `udevadm settle`).
+- **Diagnostic 3 (Dynamic ZRAM Node Check & Creation)**:
+  - *Symptom*: `swapon: cannot open /dev/zram0`.
+  - *Root Cause*: When ZRAM module initialized, devtmpfs hadn't populated `/dev/zram0`.
+  - *Resolution*: Patched `init/init.d/zram-swap` to dynamically verify `/dev/zram0` and create it with `mknod /dev/zram0 b $(cat /sys/block/zram0/dev | tr : ' ')` if missing before calling `mkswap` and `swapon`.
+- **Diagnostic 4 (ALSA Card Index Spam)**:
+  - *Symptom*: `Invalid card number '0'.` printed 7 times during boot.
+  - *Root Cause*: `/etc/init.d/alsa-utils` attempted to query card 0 when no audio hardware was initialized.
+  - *Resolution*: Added guard check in `alsa-utils` to exit immediately if `/proc/asound/cards` has no card indices.
+- **Diagnostic 5 (Broken SysVinit Services Cleanup)**:
+  - Removed obsolete `plymouth`, `plymouth-log`, `pulseaudio-enable-autospawn`, and `hwclock.sh` from runlevels and patched `procps` LSB dependencies.
+
+### 3. Act & Verify
+- Rebuilt `initramfs-x86_64.img` (1.1 MB) and `liteoffice-1.0-x86_64.iso` (615 MB).
+- Executed full QEMU graphical desktop boot test with automated process and memory benchmark:
+  - Total Memory: 971 MB, Used: 98 MB, Free: 600 MB (Idle RAM < 120 MB target achieved).
+  - Active Processes: Xorg, Openbox, Tint2, PCManFM desktop, DBus, Cupsd, udevd, lite-oom, zram-swap.
+  - All OpenRC services reported `[ ok ]` with zero errors.
+  - Graphical desktop reached cleanly and autologin verified.
+

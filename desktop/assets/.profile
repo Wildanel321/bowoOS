@@ -5,5 +5,6 @@ if [ -n "$BASH_VERSION" ]; then
 fi
 
 if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
-    exec startx > "$HOME/startx.log" 2>&1
+    echo "Starting LiteOffice OS Graphical Desktop..."
+    startx
 fi

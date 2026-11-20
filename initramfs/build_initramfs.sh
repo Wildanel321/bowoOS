@@ -166,6 +166,8 @@ if [ "$LIVE_BOOT" -eq 1 ] || [ "$ROOT_DEV" = "live" ]; then
         mount --bind /cow /newroot/run/live/overlay 2>/dev/null || true
         
         echo "[+] Transitioning to Live LiteOffice OS desktop session..."
+        mkdir -p /newroot/dev
+        mount --move /dev /newroot/dev 2>/dev/null || mount -t devtmpfs devtmpfs /newroot/dev
         umount /run /sys /proc 2>/dev/null || true
         exec switch_root /newroot "$INIT_BIN"
     else
@@ -233,6 +235,8 @@ if [ ! -x "/newroot$INIT_BIN" ]; then
 fi
 
 echo "[+] Transitioning to root filesystem via switch_root..."
+mkdir -p /newroot/dev
+mount --move /dev /newroot/dev 2>/dev/null || mount -t devtmpfs devtmpfs /newroot/dev
 umount /run /sys /proc 2>/dev/null || true
 exec switch_root /newroot "$INIT_BIN"
 EOF

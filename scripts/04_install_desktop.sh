@@ -177,7 +177,10 @@ chmod +x "$USER_HOME/.config/openbox/autostart"
 # Tint2 user configs
 cp "$PROJECT_ROOT/desktop/tint2/tint2rc" "$USER_HOME/.config/tint2/tint2rc"
 
-# PCManFM user configs
+# PCManFM & LibFM configs (disable annoying execute prompt via quick_exec=1)
+mkdir -p "$ROOTFS_DIR/etc/xdg/libfm" "$USER_HOME/.config/libfm"
+cp "$PROJECT_ROOT/desktop/pcmanfm/libfm.conf" "$ROOTFS_DIR/etc/xdg/libfm/libfm.conf"
+cp "$PROJECT_ROOT/desktop/pcmanfm/libfm.conf" "$USER_HOME/.config/libfm/libfm.conf"
 cp "$PROJECT_ROOT/desktop/pcmanfm/pcmanfm.conf" "$USER_HOME/.config/pcmanfm/default/pcmanfm.conf"
 cp "$PROJECT_ROOT/desktop/pcmanfm/desktop-items-0.conf" "$USER_HOME/.config/pcmanfm/default/desktop-items-0.conf"
 

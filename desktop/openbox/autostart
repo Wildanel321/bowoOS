@@ -39,7 +39,12 @@ if which volumeicon >/dev/null 2>&1; then
     volumeicon &
 fi
 
-# 7. Conditional Compositing (Only on >= 2 GB RAM if explicitly enabled)
+# 7. Start NetworkManager Systray Applet (WiFi & LAN connectivity)
+if which nm-applet >/dev/null 2>&1; then
+    nm-applet &
+fi
+
+# 8. Conditional Compositing (Only on >= 2 GB RAM if explicitly enabled)
 if [ "${DESKTOP_COMPOSITING:-none}" = "picom" ] && which picom >/dev/null 2>&1; then
     picom -b --backend xrender --no-fading-openclose
 fi

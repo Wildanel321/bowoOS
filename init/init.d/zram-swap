@@ -31,11 +31,13 @@ start() {
     if [ ! -e /sys/block/zram0 ]; then
         modprobe zram num_devices=1 2>/dev/null || true
     fi
+    if [ ! -d /sys/block/zram0 ] && [ -f /sys/class/zram-control/hotadd ]; then
+        cat /sys/class/zram-control/hotadd >/dev/null 2>&1 || true
+    fi
 
     # Ensure device node /dev/zram0 exists
-    if [ ! -e /dev/zram0 ] && [ -e /sys/block/zram0/dev ]; then
-        local majmin=$(cat /sys/block/zram0/dev | tr ':' ' ')
-        mknod -m 660 /dev/zram0 b $majmin 2>/dev/null || true
+    if [ ! -b /dev/zram0 ] && [ -f /sys/block/zram0/dev ]; then
+        mknod -m 660 /dev/zram0 b $(tr ':' ' ' < /sys/block/zram0/dev) 2>/dev/null || true
     fi
 
     if [ ! -e /dev/zram0 ] && [ ! -e /sys/block/zram0 ]; then

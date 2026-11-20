@@ -15,6 +15,13 @@ echo "[*] Updating zram-swap service in rootfs..."
 cp "$PROJECT_ROOT/init/init.d/zram-swap" "$ROOTFS_DIR/etc/init.d/zram-swap"
 chmod 755 "$ROOTFS_DIR/etc/init.d/zram-swap"
 
+echo "[*] Integrating NetworkManager OpenRC service into rootfs..."
+cp "$PROJECT_ROOT/init/init.d/networkmanager" "$ROOTFS_DIR/etc/init.d/networkmanager"
+chmod 755 "$ROOTFS_DIR/etc/init.d/networkmanager"
+
+echo "[*] Ensuring OpenRC init binary symlink..."
+ln -sf /sbin/openrc-init "$ROOTFS_DIR/sbin/init"
+
 echo "[*] Fixing LSB headers on legacy SysVinit scripts..."
 # Fix procps
 sed -i 's/mountkernfs //g' "$ROOTFS_DIR/etc/init.d/procps"
@@ -40,6 +47,7 @@ fi
 
 echo "[*] Adjusting OpenRC runlevel registrations..."
 chroot "$ROOTFS_DIR" rc-update add udev sysinit 2>/dev/null || true
+chroot "$ROOTFS_DIR" rc-update add networkmanager default 2>/dev/null || true
 chroot "$ROOTFS_DIR" rc-update del hwclock.sh sysinit 2>/dev/null || true
 chroot "$ROOTFS_DIR" rc-update del pulseaudio-enable-autospawn default 2>/dev/null || true
 chroot "$ROOTFS_DIR" rc-update del plymouth default 2>/dev/null || true

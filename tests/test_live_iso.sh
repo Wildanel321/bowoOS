@@ -45,8 +45,8 @@ if [ -f "$ISO_PATH" ]; then
     ISO_MB=$(( ISO_BYTES / 1048576 ))
     echo "    - ISO Image Location: $ISO_PATH"
     echo "    - ISO Image Size    : ${ISO_MB} MB"
-    if [ "$ISO_MB" -ge 100 ] && [ "$ISO_MB" -le 700 ]; then
-        log_pass "ISO size (${ISO_MB} MB) is well within ultra-lightweight distribution targets (< 700 MB CD envelope)."
+    if [ "$ISO_MB" -ge 100 ] && [ "$ISO_MB" -le 1000 ]; then
+        log_pass "ISO size (${ISO_MB} MB) is well within lightweight distribution targets (with full Wi-Fi & LAN drivers + firmwares)."
     else
         log_fail "ISO size abnormal: ${ISO_MB} MB"
     fi

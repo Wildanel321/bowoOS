@@ -1,0 +1,20 @@
+#!/sbin/openrc-run
+# ==============================================================================
+# LiteOffice OS — NetworkManager OpenRC Service
+# ==============================================================================
+description="NetworkManager Daemon"
+
+command="/usr/sbin/NetworkManager"
+command_args="--no-daemon"
+command_background="yes"
+pidfile="/run/NetworkManager/NetworkManager.pid"
+
+depend() {
+    need dbus
+    after udev
+    provide net
+}
+
+start_pre() {
+    checkpath -d /run/NetworkManager
+}

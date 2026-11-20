@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=About office lite
+Name=About LiteOffice OS
 Comment=View system specifications, hardware profiling, and release info
 Exec=/usr/local/bin/liteoffice-about
 Icon=liteoffice

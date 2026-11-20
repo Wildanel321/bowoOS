@@ -7,6 +7,11 @@ border.color: #282c34
 window.active.border.color: #2563eb
 window.inactive.border.color: #282c34
 
+# Titlebar Geometry
+padding.width: 4
+padding.height: 4
+window.handle.width: 0
+
 # Titlebar
 window.active.title.bg: flat solid
 window.active.title.bg.color: #1e222a

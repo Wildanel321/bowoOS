@@ -44,51 +44,137 @@ def run_command(cmd, log_callback=None):
 def detect_boot_mode():
     return "UEFI" if os.path.isdir("/sys/firmware/efi") else "BIOS"
 
+def get_live_boot_disks():
+    """Identifies the parent disk of any live media or root filesystem."""
+    live_disks = set()
+    try:
+        if os.path.exists("/proc/mounts"):
+            with open("/proc/mounts", "r") as mf:
+                for line in mf:
+                    parts = line.split()
+                    if len(parts) >= 2 and any(p in parts[1] for p in ["/run/live/medium", "/cdrom", "/rofs", "/run/live/overlay"]):
+                        dev_str = parts[0]
+                        if dev_str.startswith("/dev/"):
+                            bname = os.path.basename(dev_str)
+                            # Remove partition number (e.g. sdb1 -> sdb, nvme0n1p1 -> nvme0n1)
+                            clean_disk = bname
+                            if "nvme" in clean_disk and "p" in clean_disk:
+                                clean_disk = clean_disk.rsplit("p", 1)[0]
+                            else:
+                                clean_disk = clean_disk.rstrip("0123456789")
+                            if clean_disk:
+                                live_disks.add(clean_disk)
+    except Exception:
+        pass
+    return live_disks
+
 def list_storage_disks():
+    """Enumerates all physical and virtual storage drives available for OS installation."""
     disks = []
+    live_disks = get_live_boot_disks()
+    seen_names = set()
+
+    # Method 1: lsblk JSON parsing
     try:
         raw = subprocess.check_output(
             ["lsblk", "-J", "-b", "-d", "-o", "NAME,SIZE,MODEL,TYPE,TRAN,RM,RO"],
-            text=True
+            text=True, stderr=subprocess.DEVNULL
         )
         data = json.loads(raw)
-        live_medium = ""
-        try:
-            mounts = subprocess.check_output(["lsblk", "-lno", "NAME,MOUNTPOINT"], text=True)
-            for mline in mounts.splitlines():
-                parts = mline.split()
-                if len(parts) >= 2 and any(p in parts[1] for p in ["/cdrom", "/run/live/medium", "/rofs"]):
-                    live_medium = parts[0]
-                    break
-        except Exception:
-            pass
-
         for dev in data.get("blockdevices", []):
-            name = dev.get("name", "")
-            dev_type = dev.get("type", "")
+            name = dev.get("name", "").strip()
+            dev_type = dev.get("type", "").strip()
             size_bytes = int(dev.get("size", 0))
-            model = dev.get("model") or "Generic Drive"
-            ro = dev.get("ro", False)
-            if dev_type != "disk" or ro:
+            model = (dev.get("model") or "").strip() or "Generic Physical Drive"
+            
+            # Robust read-only flag check (avoid string "0" evaluated as True)
+            ro_val = dev.get("ro", False)
+            is_ro = ro_val is True or ro_val == 1 or str(ro_val).lower() in ["1", "true", "yes"]
+
+            # Filter out non-disk and RAM/loop devices
+            if dev_type and dev_type != "disk":
                 continue
-            if name.startswith("loop") or name.startswith("zram") or name.startswith("sr"):
+            if name.startswith(("loop", "zram", "sr", "dm-", "ram")):
                 continue
-            if live_medium and name in live_medium:
+            if name in live_disks:
                 continue
+
             size_gb = round(size_bytes / (1024 ** 3), 1)
             if size_gb < 4.0:
                 continue
+
             dev_path = f"/dev/{name}"
             disks.append({
                 "name": name,
                 "path": dev_path,
                 "size_bytes": size_bytes,
                 "size_gb": size_gb,
-                "model": model.strip(),
-                "tran": dev.get("tran") or "internal"
+                "model": f"{model} {'[Read-Only]' if is_ro else ''}".strip(),
+                "tran": dev.get("tran") or "internal",
+                "is_ro": is_ro
             })
+            seen_names.add(name)
+    except Exception:
+        pass
+
+    # Method 2: Direct /sys/block fallback scanning (guarantees NVMe, SATA, IDE detection)
+    try:
+        sys_block = "/sys/block"
+        if os.path.isdir(sys_block):
+            for entry in os.listdir(sys_block):
+                if entry in seen_names:
+                    continue
+                if entry.startswith(("loop", "zram", "sr", "dm-", "ram")):
+                    continue
+                if entry in live_disks:
+                    continue
+                if not (entry.startswith(("sd", "nvme", "vd", "hd", "xvd"))):
+                    continue
+
+                size_file = os.path.join(sys_block, entry, "size")
+                if not os.path.isfile(size_file):
+                    continue
+
+                with open(size_file, "r") as sf:
+                    sectors = int(sf.read().strip() or 0)
+                size_bytes = sectors * 512
+                size_gb = round(size_bytes / (1024 ** 3), 1)
+                if size_gb < 4.0:
+                    continue
+
+                # Model identification
+                model = "Generic Physical Drive"
+                model_file = os.path.join(sys_block, entry, "device", "model")
+                if os.path.isfile(model_file):
+                    try:
+                        with open(model_file, "r") as mf:
+                            model = mf.read().strip() or model
+                    except Exception:
+                        pass
+
+                ro_file = os.path.join(sys_block, entry, "ro")
+                is_ro = False
+                if os.path.isfile(ro_file):
+                    try:
+                        with open(ro_file, "r") as rf:
+                            is_ro = rf.read().strip() == "1"
+                    except Exception:
+                        pass
+
+                dev_path = f"/dev/{entry}"
+                disks.append({
+                    "name": entry,
+                    "path": dev_path,
+                    "size_bytes": size_bytes,
+                    "size_gb": size_gb,
+                    "model": f"{model} {'[Read-Only]' if is_ro else ''}".strip(),
+                    "tran": "internal",
+                    "is_ro": is_ro
+                })
+                seen_names.add(entry)
     except Exception as e:
-        print(f"Error enumerating storage devices: {e}", file=sys.stderr)
+        print(f"Fallback sysfs drive enumeration error: {e}", file=sys.stderr)
+
     return disks
 
 def get_partition_path(disk_path, part_num):
@@ -149,8 +235,11 @@ class InstallWorker:
             self.log(f"Home Allocation : {home_gb} GB\n")
         self.log("------------------------------------------------------------\n")
 
-        # 1. Unmount existing partitions on target disk
+        # 1. Unmount existing partitions and deactivate swap on target disk
         try:
+            self.log("Disabling swap and unmounting partitions on target storage...\n")
+            subprocess.run(f"swapoff {target_disk}* 2>/dev/null || true", shell=True)
+            subprocess.run(f"umount -f -l {target_disk}* 2>/dev/null || true", shell=True)
             parts = subprocess.check_output(
                 ["lsblk", "-lno", "NAME", target_disk], text=True
             ).splitlines()
@@ -159,9 +248,13 @@ class InstallWorker:
                 if part.strip() and part.strip() != base_name:
                     part_dev = f"/dev/{part.strip()}"
                     subprocess.run(["swapoff", part_dev], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    subprocess.run(["umount", "-l", part_dev], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    subprocess.run(["umount", "-f", "-l", part_dev], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            # Wipe lingering partition signatures to ensure clean partition table creation
+            subprocess.run(["wipefs", "-a", "-f", target_disk], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["partprobe", target_disk], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            time.sleep(1)
         except Exception as e:
-            self.log(f"Note while unmounting: {e}\n")
+            self.log(f"Note while preparing target disk: {e}\n")
 
         mount_target = "/mnt/liteoffice_target"
         subprocess.run(["umount", "-l", mount_target], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

@@ -216,7 +216,8 @@ EOF
 WALLPAPER_DIR="$ROOTFS_DIR/usr/share/wallpapers/liteoffice"
 mkdir -p "$WALLPAPER_DIR"
 cp "$PROJECT_ROOT/branding/wallpapers/"*.png "$WALLPAPER_DIR/"
-chmod 644 "$WALLPAPER_DIR/"*.png
+[ -f "$PROJECT_ROOT/example-wallpaper.jpg" ] && cp "$PROJECT_ROOT/example-wallpaper.jpg" "$WALLPAPER_DIR/"
+chmod 644 "$WALLPAPER_DIR/"*
 
 # GRUB Theme
 GRUB_THEME_DIR="$ROOTFS_DIR/boot/grub/themes/liteoffice"

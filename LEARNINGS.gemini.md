@@ -344,3 +344,33 @@ This file serves as an immutable, timestamped record of PRAR (Perceive, Reason, 
   - All OpenRC services reported `[ ok ]` with zero errors.
   - Graphical desktop reached cleanly and autologin verified.
 
+---
+
+## [2026-11-20T13:35:00+07:00] Stage 11: Custom Default Wallpaper with Oil Palm Tree Emblem & "office lite" Branding
+
+### 1. Perceive
+- **Input**: User requested updating the default OS wallpaper using `example-wallpaper.jpg` (high-resolution Milky Way starry galaxy), featuring a central oil palm tree logo (*pohon kelapa sawit*) with deliberate breathing space and the text "office lite" directly beneath.
+- **Artifacts Analyzed**: `example-wallpaper.jpg` (6000x4000 JPEG), `desktop/pcmanfm/desktop-items-0.conf`, `branding/wallpapers/`, `branding/grub/liteoffice/`.
+
+### 2. Reason & Engineering Diagnostics
+- **Resolution & Aspect Ratio Processing**:
+  - `example-wallpaper.jpg` (6000x4000, 3:2) is cropped to 16:9 (6000x3375) and 4:3 (5333x4000) using center-weighted cropping and downscaled via high-fidelity Lanczos resampling to 1920x1080 and 1024x768.
+- **Oil Palm Tree Emblem Vector Design**:
+  - Designed an authentic, stylized oil palm tree (*Elaeis guineensis*):
+    1. Sturdy trunk with characteristic diamond / rhomboid leaf-base scars (bekas pelepah sawit).
+    2. Golden-orange ripe palm fruit clusters (*tandan buah sawit*) nestled in the left and right frond axils.
+    3. Full, feathered pinnate palm fronds arching gracefully upwards and outwards from the crown with emerald-to-white gradient highlights.
+    4. Circular frosted-glass medallion backdrop with cyan-emerald-gold orbital glow rings.
+- **Typography & Legibility**:
+  - Bold, clean sans-serif text "office lite" positioned with 65px breathing space below the medallion.
+  - Layered stroke shadow ensures 100% legibility against the bright stars and nebula dust of the galaxy background.
+
+### 3. Act & Verify
+- Developed `branding/wallpapers/generate_sawit_wallpaper.py` using PySide6 QtSvg and Pillow.
+- Rendered:
+  - `branding/wallpapers/liteoffice-default.png` (1920x1080, Full HD default wallpaper).
+  - `branding/wallpapers/liteoffice-1024x768.png` (1024x768, legacy display wallpaper).
+  - `branding/grub/liteoffice/background.png` (GRUB bootloader theme background).
+- Visual inspection via `read_file` confirmed crisp galaxy stars, majestic palm tree emblem, and legible typography.
+- Deployed wallpapers to staging rootfs (`/usr/share/wallpapers/liteoffice/`) and regenerated Live ISO.
+

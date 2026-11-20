@@ -10,16 +10,19 @@ if [ -n "${LITE_AUTOSTART_RUNNING:-}" ]; then
 fi
 export LITE_AUTOSTART_RUNNING=1
 
-# 1. Turn off screen saver blanking for predictable office display
+# 1. Allow local root processes to connect to X server (e.g. GUI installer with sudo)
+xhost +local: 2>/dev/null || true
+
+# 2. Turn off screen saver blanking for predictable office display
 xset s off 2>/dev/null || true
 xset -dpms 2>/dev/null || true
 
-# 2. Source hardware memory profile
+# 3. Source hardware memory profile
 if [ -f /etc/lite-profile ]; then
     . /etc/lite-profile
 fi
 
-# 3. Launch Graphical Booting Logo Splash
+# 4. Launch Graphical Booting Logo Splash
 if [ -x /usr/local/bin/liteoffice-splash ]; then
     /usr/local/bin/liteoffice-splash --boot &
 fi

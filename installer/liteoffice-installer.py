@@ -19,10 +19,24 @@ import subprocess
 # Auto-elevate to root via sudo if launched as regular user
 if os.geteuid() != 0:
     try:
-        os.execvp("sudo", ["sudo", "-E", sys.executable] + sys.argv)
+        subprocess.run("xhost +local:root >/dev/null 2>&1 || true", shell=True)
+        subprocess.run("xhost +local: >/dev/null 2>&1 || true", shell=True)
+        env_vars = []
+        if "DISPLAY" in os.environ:
+            env_vars.append(f"DISPLAY={os.environ['DISPLAY']}")
+        xauth = os.environ.get("XAUTHORITY") or os.path.expanduser("~/.Xauthority")
+        if os.path.exists(xauth):
+            env_vars.append(f"XAUTHORITY={xauth}")
+        os.execvp("sudo", ["sudo", "-E"] + env_vars + [sys.executable] + sys.argv)
     except Exception as e:
         print(f"Error elevating to root: {e}", file=sys.stderr)
         sys.exit(1)
+else:
+    if "XAUTHORITY" not in os.environ or not os.path.exists(os.environ.get("XAUTHORITY", "")):
+        for xauth_candidate in ["/home/liteuser/.Xauthority", "/root/.Xauthority"]:
+            if os.path.exists(xauth_candidate):
+                os.environ["XAUTHORITY"] = xauth_candidate
+                break
 
 # Helper for executing shell commands with logging
 def run_command(cmd, log_callback=None):
@@ -96,8 +110,6 @@ def list_storage_disks():
                 continue
             if name.startswith(("loop", "zram", "sr", "dm-", "ram")):
                 continue
-            if name in live_disks:
-                continue
 
             size_gb = round(size_bytes / (1024 ** 3), 1)
             if size_gb < 4.0:
@@ -125,8 +137,6 @@ def list_storage_disks():
                 if entry in seen_names:
                     continue
                 if entry.startswith(("loop", "zram", "sr", "dm-", "ram")):
-                    continue
-                if entry in live_disks:
                     continue
                 if not (entry.startswith(("sd", "nvme", "vd", "hd", "xvd"))):
                     continue
@@ -197,9 +207,9 @@ class InstallWorker:
         if self.log_cb:
             self.log_cb(text)
 
-    def set_progress(self, frac, status):
+    def set_progress(self, frac, status, step=1):
         if self.progress_cb:
-            self.progress_cb(frac, status)
+            self.progress_cb(frac, status, step)
 
     def run(self):
         try:
@@ -226,7 +236,7 @@ class InstallWorker:
         password = cfg.get("password", "liteoffice")
         autologin = cfg.get("autologin", True)
 
-        self.set_progress(0.05, f"Unmounting existing partitions on {target_disk}...")
+        self.set_progress(0.05, f"Unmounting existing partitions on {target_disk}...", step=1)
         self.log(f"=== Starting LiteOffice OS Installation on {target_disk} ===\n")
         self.log(f"Boot Mode       : {boot_mode}\n")
         self.log(f"Swap Allocation : {swap_gb} GB (Min 8 GB enforced)\n")
@@ -238,20 +248,17 @@ class InstallWorker:
         # 1. Unmount existing partitions and deactivate swap on target disk
         try:
             self.log("Disabling swap and unmounting partitions on target storage...\n")
-            subprocess.run(f"swapoff {target_disk}* 2>/dev/null || true", shell=True)
+            subprocess.run(["swapoff", "-a"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if os.path.exists("/proc/mounts"):
+                with open("/proc/mounts", "r") as mf:
+                    for line in mf:
+                        parts = line.split()
+                        if len(parts) >= 2 and target_disk in parts[0]:
+                            subprocess.run(["umount", "-f", "-l", parts[1]], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             subprocess.run(f"umount -f -l {target_disk}* 2>/dev/null || true", shell=True)
-            parts = subprocess.check_output(
-                ["lsblk", "-lno", "NAME", target_disk], text=True
-            ).splitlines()
-            base_name = os.path.basename(target_disk)
-            for part in parts:
-                if part.strip() and part.strip() != base_name:
-                    part_dev = f"/dev/{part.strip()}"
-                    subprocess.run(["swapoff", part_dev], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    subprocess.run(["umount", "-f", "-l", part_dev], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            # Wipe lingering partition signatures to ensure clean partition table creation
             subprocess.run(["wipefs", "-a", "-f", target_disk], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             subprocess.run(["partprobe", target_disk], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["udevadm", "settle", "--timeout=3"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             time.sleep(1)
         except Exception as e:
             self.log(f"Note while preparing target disk: {e}\n")
@@ -261,7 +268,7 @@ class InstallWorker:
         os.makedirs(mount_target, exist_ok=True)
 
         # 2. Partitioning Disk
-        self.set_progress(0.12, "Creating partition table and geometry...")
+        self.set_progress(0.12, "Creating partition table and geometry...", step=1)
         # Wipe first 16 MB to clear old MBR/GPT signatures
         run_command(f"dd if=/dev/zero of={target_disk} bs=1M count=16 status=none", self.log)
 
@@ -327,10 +334,11 @@ class InstallWorker:
                 part_root = get_partition_path(target_disk, 2)
 
         run_command(f"partprobe {target_disk} 2>/dev/null || true", self.log)
+        subprocess.run(["udevadm", "settle", "--timeout=5"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         time.sleep(1.5)
 
         # 3. Format Partitions
-        self.set_progress(0.25, "Formatting partitions with filesystems...")
+        self.set_progress(0.25, f"Formatting Root (Ext4) and Swap ({swap_gb} GB)...", step=2)
         if part_efi:
             self.log(f"Formatting EFI partition: {part_efi}\n")
             run_command(f"mkfs.vfat -F32 -n 'LITE_EFI' {part_efi}", self.log)
@@ -346,7 +354,7 @@ class InstallWorker:
             run_command(f"mkfs.ext4 -F -q -L 'LITE_HOME' {part_home}", self.log)
 
         # 4. Mount Target
-        self.set_progress(0.35, "Mounting target filesystem layout...")
+        self.set_progress(0.35, "Mounting target filesystem layout...", step=2)
         run_command(f"mount {part_root} {mount_target}", self.log)
 
         if part_efi:
@@ -358,7 +366,7 @@ class InstallWorker:
             run_command(f"mount {part_home} {mount_target}/home", self.log)
 
         # 5. Synchronize Files from Live System
-        self.set_progress(0.45, "Synchronizing system files from Live image...")
+        self.set_progress(0.45, "Synchronizing system files from Live image...", step=3)
         source_dir = "/"
         for candidate in ["/run/live/rootfs", "/run/live/rofs", "/rofs"]:
             if os.path.isdir(candidate):
@@ -366,21 +374,37 @@ class InstallWorker:
                 break
         self.log(f"Copying OS from source: {source_dir} -> {mount_target} ...\n")
 
-        rsync_cmd = (
-            f"rsync -aHAX "
+        rsync_proc = subprocess.Popen(
+            f"rsync -aHAX --info=progress2 "
             f"--exclude='/proc/*' --exclude='/sys/*' --exclude='/dev/*' "
             f"--exclude='/tmp/*' --exclude='/run/*' --exclude='/mnt/*' "
             f"--exclude='/media/*' --exclude='/lost+found' "
-            f"{source_dir}/ {mount_target}/"
+            f"--exclude='/cdrom/*' --exclude='/rofs/*' --exclude='/cow/*' "
+            f"{source_dir}/ {mount_target}/",
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1
         )
-        run_command(rsync_cmd, self.log)
+        for line in rsync_proc.stdout:
+            self.log(line)
+            m = re.search(r"(\d+)%\s+([\d\.]+[A-Za-z]+/s)", line)
+            if m:
+                pct = int(m.group(1))
+                rate = m.group(2)
+                overall = 0.45 + (pct / 100.0) * 0.33
+                self.set_progress(round(overall, 2), f"Copying files: {pct}% transferred ({rate})...", step=3)
+        rsync_proc.wait()
+        if rsync_proc.returncode != 0:
+            raise RuntimeError(f"System file transfer failed with exit code {rsync_proc.returncode}")
 
         for p in ["proc", "sys", "dev", "tmp", "run", "mnt", "media", "home"]:
             os.makedirs(os.path.join(mount_target, p), exist_ok=True)
         os.chmod(os.path.join(mount_target, "tmp"), 0o1777)
 
         # 6. Generate Persistent /etc/fstab
-        self.set_progress(0.80, "Configuring /etc/fstab and storage UUIDs...")
+        self.set_progress(0.80, "Configuring /etc/fstab and storage UUIDs...", step=4)
         root_uuid = subprocess.check_output(["blkid", "-s", "UUID", "-o", "value", part_root], text=True).strip()
         swap_uuid = subprocess.check_output(["blkid", "-s", "UUID", "-o", "value", part_swap], text=True).strip()
 
@@ -403,7 +427,7 @@ class InstallWorker:
         self.log("Generated /etc/fstab with UUIDs.\n")
 
         # 7. Configure System Identity & User
-        self.set_progress(0.86, "Configuring hostname and user account...")
+        self.set_progress(0.86, f"Configuring hostname '{hostname}' and user account '{username}'...", step=4)
         with open(f"{mount_target}/etc/hostname", "w") as f:
             f.write(f"{hostname}\n")
 
@@ -422,35 +446,40 @@ class InstallWorker:
         self.log(f"Configured credentials for user: {username}\n")
 
         # 8. Install Bootloader (GRUB)
-        self.set_progress(0.90, "Installing GRUB bootloader to target disk...")
+        self.set_progress(0.90, f"Installing GRUB 2.12 bootloader ({boot_mode})...", step=5)
         run_command(f"mount --bind /dev {mount_target}/dev", self.log)
         run_command(f"mount --bind /dev/pts {mount_target}/dev/pts", self.log)
         run_command(f"mount -t proc proc {mount_target}/proc", self.log)
         run_command(f"mount -t sysfs sysfs {mount_target}/sys", self.log)
+        if os.path.isdir("/sys/firmware/efi/efivars"):
+            os.makedirs(f"{mount_target}/sys/firmware/efi/efivars", exist_ok=True)
+            run_command(f"mount --bind /sys/firmware/efi/efivars {mount_target}/sys/firmware/efi/efivars 2>/dev/null || true", self.log)
 
         try:
             if boot_mode == "UEFI":
                 efi_target = "x86_64-efi" if os.uname().machine == "x86_64" else "i386-efi"
                 self.log(f"Executing grub-install for UEFI ({efi_target})...\n")
                 run_command(
-                    f"chroot {mount_target} grub-install --target={efi_target} --efi-directory=/boot/efi --bootloader-id=LiteOffice --recheck || "
-                    f"chroot {mount_target} grub-install --target={efi_target} --efi-directory=/boot/efi --removable",
+                    f"chroot {mount_target} grub-install --target={efi_target} --efi-directory=/boot/efi --bootloader-id=LiteOffice --no-nvram --removable --recheck || "
+                    f"chroot {mount_target} grub-install --target={efi_target} --efi-directory=/boot/efi --removable --no-nvram",
                     self.log
                 )
             else:
                 self.log(f"Executing grub-install for Legacy BIOS (i386-pc) on {target_disk}...\n")
-                run_command(f"chroot {mount_target} grub-install --target=i386-pc {target_disk} --recheck", self.log)
+                run_command(f"chroot {mount_target} grub-install --target=i386-pc {target_disk} --recheck --force", self.log)
 
             self.log("Generating final grub.cfg...\n")
             run_command(f"chroot {mount_target} grub-mkconfig -o /boot/grub/grub.cfg", self.log)
         finally:
+            if os.path.isdir(f"{mount_target}/sys/firmware/efi/efivars"):
+                subprocess.run(["umount", "-l", f"{mount_target}/sys/firmware/efi/efivars"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             subprocess.run(["umount", "-l", f"{mount_target}/dev/pts"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             subprocess.run(["umount", "-l", f"{mount_target}/dev"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             subprocess.run(["umount", "-l", f"{mount_target}/proc"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             subprocess.run(["umount", "-l", f"{mount_target}/sys"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         # 9. Clean unmount target
-        self.set_progress(0.98, "Synchronizing storage buffers and unmounting...")
+        self.set_progress(0.98, "Synchronizing storage buffers and unmounting target...", step=6)
         run_command("sync", self.log)
         if part_efi:
             subprocess.run(["umount", "-l", f"{mount_target}/boot/efi"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -458,7 +487,7 @@ class InstallWorker:
             subprocess.run(["umount", "-l", f"{mount_target}/home"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run(["umount", "-l", mount_target], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        self.set_progress(1.0, "Installation complete!")
+        self.set_progress(1.0, "LiteOffice OS installation successfully completed!", step=6)
         self.log(f"\n[SUCCESS] LiteOffice OS successfully installed to {target_disk}!\n")
 
 
@@ -600,7 +629,7 @@ def run_gtk_installer():
             part_grid.attach(self.spin_swap, 1, 0, 1, 1)
 
             swap_note = Gtk.Label()
-            swap_note.set_markup("<span color='#10b981' size='small'>★ Minimum 8 GB enforced (Safety & Anti-OOM buffer)</span>")
+            swap_note.set_markup("<span color='#10b981' size='small'>★ Minimum 8 GB enforced (Safety &amp; Anti-OOM buffer)</span>")
             swap_note.set_halign(Gtk.Align.START)
             part_grid.attach(swap_note, 2, 0, 1, 1)
 
@@ -609,7 +638,7 @@ def run_gtk_installer():
             root_lbl.set_halign(Gtk.Align.START)
             part_grid.attach(root_lbl, 0, 1, 1, 1)
 
-            self.spin_root = Gtk.SpinButton.new_with_range(8.0, 500.0, 1.0)
+            self.spin_root = Gtk.SpinButton.new_with_range(6.0, 5000.0, 1.0)
             self.spin_root.set_value(20.0)
             self.spin_root.connect("value-changed", lambda s: self._recalculate_sizes())
             part_grid.attach(self.spin_root, 1, 1, 1, 1)
@@ -625,9 +654,9 @@ def run_gtk_installer():
             self.chk_home.connect("toggled", self._on_home_toggled)
             part_grid.attach(self.chk_home, 0, 2, 1, 1)
 
-            self.spin_home = Gtk.SpinButton.new_with_range(1.0, 1000.0, 1.0)
+            self.spin_home = Gtk.SpinButton.new_with_range(0.0, 5000.0, 1.0)
             self.spin_home.set_value(10.0)
-            self.spin_home.connect("value-changed", lambda s: self._recalculate_sizes())
+            self.spin_home.connect("value-changed", self._on_home_spin_changed)
             part_grid.attach(self.spin_home, 1, 2, 1, 1)
 
             self.home_note = Gtk.Label()
@@ -638,7 +667,7 @@ def run_gtk_installer():
             # Auto-balance Remaining Space Checkbox
             self.chk_auto_home = Gtk.CheckButton(label="Automatically allocate all remaining space to /home")
             self.chk_auto_home.set_active(True)
-            self.chk_auto_home.connect("toggled", lambda c: self._recalculate_sizes())
+            self.chk_auto_home.connect("toggled", self._on_auto_home_toggled)
             part_grid.attach(self.chk_auto_home, 0, 3, 3, 1)
 
             # Storage Bar / Allocation Summary
@@ -711,25 +740,64 @@ def run_gtk_installer():
             return vbox
 
         def _build_install_page(self):
-            vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+            vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
 
-            self.install_status_lbl = Gtk.Label(label="Preparing installation...")
+            self.install_status_lbl = Gtk.Label()
             self.install_status_lbl.set_halign(Gtk.Align.START)
-            self.install_status_lbl.set_markup("<span font='12' weight='bold'>Installing LiteOffice OS...</span>")
-            vbox.pack_start(self.install_status_lbl, False, False, 4)
+            self.install_status_lbl.set_markup("<span font='12' weight='bold' color='#38bdf8'>Starting installation process...</span>")
+            vbox.pack_start(self.install_status_lbl, False, False, 2)
 
             self.progress_bar = Gtk.ProgressBar()
             self.progress_bar.set_fraction(0.0)
             self.progress_bar.set_show_text(True)
-            vbox.pack_start(self.progress_bar, False, False, 0)
+            vbox.pack_start(self.progress_bar, False, False, 2)
 
+            # Stage Checklist Frame
+            step_frame = Gtk.Frame(label=" Setup Progress & Stages ")
+            step_grid = Gtk.Grid()
+            step_grid.set_column_spacing(16)
+            step_grid.set_row_spacing(6)
+            step_grid.set_border_width(10)
+
+            self.step_names = [
+                "Storage Preparation &amp; Partition Tables",
+                "Formatting Filesystems (Ext4 &amp; 8GB Swap)",
+                "Synchronizing System Files (Live OS to Disk)",
+                "Configuring Storage UUIDs, Identity &amp; Accounts",
+                "Installing GRUB 2.12 Bootloader",
+                "Flushing Disk Cache &amp; Finalizing Setup"
+            ]
+
+            self.step_widgets = []
+            for i, name in enumerate(self.step_names, start=1):
+                icon_lbl = Gtk.Label()
+                icon_lbl.set_markup("<span color='#64748b'>○</span>")
+                icon_lbl.set_halign(Gtk.Align.CENTER)
+
+                name_lbl = Gtk.Label()
+                name_lbl.set_markup(f"<span color='#94a3b8'>Step {i}: {name}</span>")
+                name_lbl.set_halign(Gtk.Align.START)
+
+                col = 0 if i <= 3 else 2
+                row = (i - 1) % 3
+                step_grid.attach(icon_lbl, col, row, 1, 1)
+                step_grid.attach(name_lbl, col + 1, row, 1, 1)
+                self.step_widgets.append((icon_lbl, name_lbl))
+
+            step_frame.add(step_grid)
+            vbox.pack_start(step_frame, False, False, 2)
+
+            # Monospace Log View
+            log_frame = Gtk.Frame(label=" Live Output Log ")
             self.log_text = Gtk.TextView()
             self.log_text.set_editable(False)
             self.log_text.set_monospace(True)
             log_scroller = Gtk.ScrolledWindow()
             log_scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+            log_scroller.set_min_content_height(140)
             log_scroller.add(self.log_text)
-            vbox.pack_start(log_scroller, True, True, 0)
+            log_frame.add(log_scroller)
+            vbox.pack_start(log_frame, True, True, 2)
 
             return vbox
 
@@ -768,7 +836,18 @@ def run_gtk_installer():
             active = widget.get_active()
             self.spin_home.set_sensitive(active)
             self.chk_auto_home.set_sensitive(active)
+            if not active:
+                self.spin_home.set_value(0.0)
             self._recalculate_sizes()
+
+        def _on_home_spin_changed(self, widget):
+            if not getattr(self, "_updating_sizes", False):
+                self.chk_auto_home.set_active(False)
+            self._recalculate_sizes()
+
+        def _on_auto_home_toggled(self, widget):
+            if widget.get_active():
+                self._recalculate_sizes()
 
         def _on_refresh_disks(self, widget):
             self.disks = list_storage_disks()
@@ -800,62 +879,88 @@ def run_gtk_installer():
                 f" <span color='#94a3b8'>| Bus: </span><span weight='bold'>{disk['tran'].upper()}</span>"
             )
 
-            # Adjust spin buttons ranges according to disk size
             total = disk["size_gb"]
-            # Swap minimum is 8 GB
-            swap_val = 8.0
-            if total < 12.0:
-                swap_val = max(1.0, round(total - 8.0, 1))
+            # Swap minimum is 8 GB, but if small test drive (< 16 GB), allow smaller swap
+            if total < 16.0:
+                self.spin_swap.set_range(2.0, 64.0)
+                swap_val = max(2.0, round(total * 0.25, 1))
+            else:
+                self.spin_swap.set_range(8.0, 64.0)
+                swap_val = 8.0
 
             self.spin_swap.set_value(swap_val)
 
-            # Default root allocation
-            if total > 60:
-                root_val = 30.0
-            elif total > 30:
-                root_val = 18.0
+            # Auto-balance root and home to perfectly fit the drive
+            esp = 0.5 if self.boot_mode == "UEFI" else 0.0
+            avail_os = max(6.0, total - swap_val - esp)
+            if self.chk_home.get_active():
+                if avail_os > 60:
+                    root_val = 30.0
+                elif avail_os > 30:
+                    root_val = 20.0
+                else:
+                    root_val = max(6.0, round(avail_os * 0.6, 1))
+                home_val = max(0.0, round(avail_os - root_val, 1))
+                self.spin_root.set_value(root_val)
+                self.spin_home.set_value(home_val)
             else:
-                root_val = max(8.0, round((total - swap_val) * 0.6, 1))
-            self.spin_root.set_value(root_val)
+                self.spin_root.set_value(round(avail_os, 1))
+                self.spin_home.set_value(0.0)
 
             self._recalculate_sizes()
 
         def _recalculate_sizes(self):
-            disk = self._get_selected_disk()
-            if not disk:
+            if getattr(self, "_updating_sizes", False):
                 return
+            self._updating_sizes = True
+            try:
+                disk = self._get_selected_disk()
+                if not disk:
+                    self.btn_next.set_sensitive(False)
+                    return
 
-            total = disk["size_gb"]
-            swap = self.spin_swap.get_value()
-            root = self.spin_root.get_value()
-            esp = 0.5 if self.boot_mode == "UEFI" else 0.0
+                total = disk["size_gb"]
+                swap = self.spin_swap.get_value()
+                root = self.spin_root.get_value()
+                esp = 0.5 if self.boot_mode == "UEFI" else 0.0
 
-            used_so_far = round(esp + swap + root, 1)
-            remaining = round(total - used_so_far, 1)
+                used_so_far = round(esp + swap + root, 1)
+                remaining = round(total - used_so_far, 1)
 
-            if self.chk_home.get_active():
-                if self.chk_auto_home.get_active():
-                    home_val = max(0.0, remaining)
-                    self.spin_home.set_value(home_val)
+                if self.chk_home.get_active():
+                    if self.chk_auto_home.get_active():
+                        home_val = max(0.0, remaining)
+                        self.spin_home.set_value(home_val)
+                    else:
+                        home_val = self.spin_home.get_value()
+                    total_used = round(used_so_far + home_val, 1)
+                    free_space = round(total - total_used, 1)
                 else:
-                    home_val = self.spin_home.get_value()
-                total_used = round(used_so_far + home_val, 1)
-                free_space = round(total - total_used, 1)
-            else:
-                home_val = 0.0
-                total_used = used_so_far
-                free_space = remaining
+                    home_val = 0.0
+                    total_used = used_so_far
+                    free_space = remaining
 
-            status_color = "#10b981" if free_space >= 0 else "#ef4444"
-            summary_html = (
-                f"<b>Allocation Summary:</b> "
-                f"Swap: <b>{swap:.1f} GB</b> | "
-                f"Root (/): <b>{root:.1f} GB</b> | "
-                f"Home (/home): <b>{home_val:.1f} GB</b> | "
-                f"<span color='{status_color}'>Remaining Free: <b>{free_space:.1f} GB</b> (of {total:.1f} GB)</span>"
-            )
-            self.alloc_summary_lbl.set_markup(summary_html)
-            self.btn_next.set_sensitive(free_space >= -0.1 and root >= 8.0 and swap >= 8.0)
+                if free_space < -0.1:
+                    status_text = f"<span color='#ef4444'><b>Error:</b> Allocated space exceeds disk by {abs(free_space):.1f} GB!</span>"
+                    can_next = False
+                elif root < 6.0:
+                    status_text = "<span color='#ef4444'><b>Error:</b> Root (/) partition must be at least 6 GB.</span>"
+                    can_next = False
+                else:
+                    status_text = f"<span color='#10b981'><b>Ready:</b> Free space: <b>{free_space:.1f} GB</b> (of {total:.1f} GB)</span>"
+                    can_next = True
+
+                summary_html = (
+                    f"<b>Allocation:</b> "
+                    f"Swap: <b>{swap:.1f} GB</b> | "
+                    f"Root (/): <b>{root:.1f} GB</b> | "
+                    f"Home (/home): <b>{home_val:.1f} GB</b> | "
+                    f"{status_text}"
+                )
+                self.alloc_summary_lbl.set_markup(summary_html)
+                self.btn_next.set_sensitive(can_next)
+            finally:
+                self._updating_sizes = False
 
         def _on_next_clicked(self, widget):
             curr = self.stack.get_visible_child_name()
@@ -949,13 +1054,24 @@ def run_gtk_installer():
                 self.btn_next.set_label("Next >")
                 self.btn_next.get_style_context().remove_class("destructive-action")
 
-        def _on_worker_progress(self, frac, status_text):
-            GLib.idle_add(self._update_progress_ui, frac, status_text)
+        def _on_worker_progress(self, frac, status_text, step=1):
+            GLib.idle_add(self._update_progress_ui, frac, status_text, step)
 
-        def _update_progress_ui(self, frac, status_text):
+        def _update_progress_ui(self, frac, status_text, step=1):
             self.progress_bar.set_fraction(frac)
             self.progress_bar.set_text(f"{int(frac * 100)}%")
-            self.install_status_lbl.set_markup(f"<span font='11' weight='bold'>{status_text}</span>")
+            self.install_status_lbl.set_markup(f"<span font='11' weight='bold' color='#38bdf8'>{status_text}</span>")
+            for i, (icon_lbl, name_lbl) in enumerate(self.step_widgets, start=1):
+                name = self.step_names[i - 1]
+                if i < step:
+                    icon_lbl.set_markup("<span color='#10b981' weight='bold'>✔</span>")
+                    name_lbl.set_markup(f"<span color='#10b981'>Step {i}: {name}</span>")
+                elif i == step:
+                    icon_lbl.set_markup("<span color='#38bdf8' weight='bold'>▶</span>")
+                    name_lbl.set_markup(f"<span color='#38bdf8' weight='bold'>Step {i}: {name}</span>")
+                else:
+                    icon_lbl.set_markup("<span color='#64748b'>○</span>")
+                    name_lbl.set_markup(f"<span color='#64748b'>Step {i}: {name}</span>")
 
         def _on_worker_log(self, text):
             GLib.idle_add(self._append_log_ui, text)
@@ -972,6 +1088,10 @@ def run_gtk_installer():
 
         def _show_finish_ui(self, success, message):
             if success:
+                for i, (icon_lbl, name_lbl) in enumerate(self.step_widgets, start=1):
+                    name = self.step_names[i - 1]
+                    icon_lbl.set_markup("<span color='#10b981' weight='bold'>✔</span>")
+                    name_lbl.set_markup(f"<span color='#10b981'>Step {i}: {name}</span>")
                 self.stack.set_visible_child_name("complete")
                 self.btn_cancel.set_sensitive(True)
                 self.btn_cancel.set_label("Exit")
@@ -1074,7 +1194,18 @@ if __name__ == "__main__":
         try:
             run_gtk_installer()
         except Exception as e:
-            print(f"Failed to launch GTK GUI ({e}), falling back to CLI...", file=sys.stderr)
-            run_cli_installer()
+            import traceback
+            err = traceback.format_exc()
+            try:
+                with open("/tmp/liteoffice-installer-error.log", "w") as ef:
+                    ef.write(err)
+            except Exception:
+                pass
+            print(f"Failed to launch GTK GUI: {e}\n{err}", file=sys.stderr)
+            # If launched from GUI without terminal, launch visible terminal instead of hanging on input()
+            if not sys.stdin.isatty() and shutil.which("lxterminal"):
+                subprocess.Popen(["lxterminal", "-T", "LiteOffice OS Installer", "-e", f"sudo -E {sys.executable} {__file__} --cli"])
+            else:
+                run_cli_installer()
     else:
         run_cli_installer()

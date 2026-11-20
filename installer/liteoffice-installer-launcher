@@ -1,0 +1,14 @@
+#!/bin/sh
+# ==============================================================================
+# LiteOffice OS — Graphical Installer Launcher Wrapper
+# Guarantees X11 authorization for root and launches GTK 3 installer
+# ==============================================================================
+xhost +local:root 2>/dev/null || true
+xhost +local: 2>/dev/null || true
+
+export DISPLAY="${DISPLAY:-:0}"
+if [ -z "${XAUTHORITY:-}" ] && [ -f "$HOME/.Xauthority" ]; then
+    export XAUTHORITY="$HOME/.Xauthority"
+fi
+
+exec sudo -E /usr/local/bin/liteoffice-installer "$@"

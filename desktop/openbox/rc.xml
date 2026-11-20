@@ -182,7 +182,7 @@
     </keybind>
   </keyboard>
   <mouse>
-    <dragThreshold>1</dragThreshold>
+    <dragThreshold>8</dragThreshold>
     <doubleClickTime>300</doubleClickTime>
     <screenEdgeWarpTime>0</screenEdgeWarpTime>
     <screenEdgeWarpMouse>false</screenEdgeWarpMouse>
@@ -251,6 +251,7 @@
       <mousebind button="Left" action="Press">
         <action name="Focus"/>
         <action name="Raise"/>
+        <action name="Close"/>
       </mousebind>
       <mousebind button="Left" action="Click">
         <action name="Close"/>
@@ -263,8 +264,12 @@
       <mousebind button="Left" action="Press">
         <action name="Focus"/>
         <action name="Raise"/>
+        <action name="ToggleMaximize"/>
       </mousebind>
       <mousebind button="Left" action="Click">
+        <action name="ToggleMaximize"/>
+      </mousebind>
+      <mousebind button="Left" action="DoubleClick">
         <action name="ToggleMaximize"/>
       </mousebind>
     </context>
@@ -272,6 +277,7 @@
       <mousebind button="Left" action="Press">
         <action name="Focus"/>
         <action name="Raise"/>
+        <action name="Iconify"/>
       </mousebind>
       <mousebind button="Left" action="Click">
         <action name="Iconify"/>

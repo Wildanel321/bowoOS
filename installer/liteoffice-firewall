@@ -1,0 +1,43 @@
+#!/bin/bash
+# ==============================================================================
+# LiteOffice OS — Firewall Manager & Status Utility
+# ==============================================================================
+set -eu
+
+ACTION="${1:-status}"
+
+case "$ACTION" in
+    status)
+        echo "=================================================================="
+        echo "  LiteOffice OS — Firewall Security Status"
+        echo "=================================================================="
+        if sudo iptables -L INPUT -n 2>/dev/null | grep -q "Chain INPUT (policy DROP)"; then
+            echo "[✓] Status: ACTIVE & SECURED (Stateful Firewall On)"
+            echo "[✓] Policy: Inbound Traffic: BLOCKED (DROP)"
+            echo "[✓] Policy: Outbound Traffic: ALLOWED (ACCEPT)"
+            echo "[✓] Policy: Established Connections: ALLOWED"
+            echo "------------------------------------------------------------------"
+            sudo iptables -L INPUT -v -n --line-numbers
+        else
+            echo "[!] Status: INACTIVE (Permissive mode)"
+        fi
+        ;;
+    start|enable)
+        echo "[*] Activating LiteOffice OS Firewall..."
+        sudo /etc/init.d/liteoffice-firewall start
+        echo "[✓] Firewall is now ACTIVE and protecting your computer."
+        ;;
+    stop|disable)
+        echo "[*] Deactivating Firewall..."
+        sudo /etc/init.d/liteoffice-firewall stop
+        echo "[!] Firewall is now DISABLED."
+        ;;
+    restart)
+        sudo /etc/init.d/liteoffice-firewall restart
+        echo "[✓] Firewall restarted successfully."
+        ;;
+    *)
+        echo "Usage: liteoffice-firewall [status|start|stop|restart]"
+        exit 1
+        ;;
+esac

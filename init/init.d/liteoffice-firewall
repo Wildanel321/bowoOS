@@ -1,0 +1,75 @@
+#!/sbin/openrc-run
+# ==============================================================================
+# LiteOffice OS — High-Security Stateful Firewall Service (OpenRC)
+# Drops all unsolicited inbound traffic, permits established and loopback
+# ==============================================================================
+description="LiteOffice OS High-Security Stateful Firewall"
+
+depend() {
+    need net
+    after udev
+}
+
+start() {
+    ebegin "Starting LiteOffice OS Stateful Firewall"
+    if command -v iptables >/dev/null 2>&1; then
+        # Default policies: DROP incoming & forward, ACCEPT outbound
+        iptables -P INPUT DROP
+        iptables -P FORWARD DROP
+        iptables -P OUTPUT ACCEPT
+
+        # Flush existing rules
+        iptables -F
+        iptables -X
+
+        # Allow loopback interface
+        iptables -A INPUT -i lo -j ACCEPT
+        iptables -A OUTPUT -o lo -j ACCEPT
+
+        # Stateful connection tracking
+        iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+        iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
+
+        # Rate-limited ICMP ping response (prevent ping floods)
+        iptables -A INPUT -p icmp --icmp-type echo-request -m limit --limit 1/s --limit-burst 4 -j ACCEPT
+        iptables -A INPUT -p icmp -j DROP
+    fi
+
+    if command -v ip6tables >/dev/null 2>&1; then
+        ip6tables -P INPUT DROP
+        ip6tables -P FORWARD DROP
+        ip6tables -P OUTPUT ACCEPT
+        ip6tables -F
+        ip6tables -X
+        ip6tables -A INPUT -i lo -j ACCEPT
+        ip6tables -A OUTPUT -o lo -j ACCEPT
+        ip6tables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+        ip6tables -A INPUT -m conntrack --ctstate INVALID -j DROP
+    fi
+    eend 0
+}
+
+stop() {
+    ebegin "Stopping LiteOffice OS Stateful Firewall"
+    if command -v iptables >/dev/null 2>&1; then
+        iptables -P INPUT ACCEPT
+        iptables -P FORWARD ACCEPT
+        iptables -P OUTPUT ACCEPT
+        iptables -F
+        iptables -X
+    fi
+    if command -v ip6tables >/dev/null 2>&1; then
+        ip6tables -P INPUT ACCEPT
+        ip6tables -P FORWARD ACCEPT
+        ip6tables -P OUTPUT ACCEPT
+        ip6tables -F
+        ip6tables -X
+    fi
+    eend 0
+}
+
+status() {
+    if command -v iptables >/dev/null 2>&1; then
+        iptables -L -v -n
+    fi
+}

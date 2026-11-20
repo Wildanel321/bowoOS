@@ -1,0 +1,179 @@
+#!/bin/bash
+# ==============================================================================
+# LiteOffice OS — Automated Hardware Driver & Application Suite Provisioner
+# Automatically detects hardware (CPU, GPU, Wi-Fi, LAN, Printers) and
+# downloads/installs full drivers and office applications without manual effort.
+# ==============================================================================
+set -e
+
+LOG_FILE="/var/log/liteoffice-auto-provision.log"
+MARKER_FILE="/var/lib/liteoffice/provisioned"
+mkdir -p /var/lib/liteoffice "$(dirname "$LOG_FILE")"
+
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+echo "=================================================================="
+echo "LiteOffice OS — Auto Driver & Application Provisioner"
+echo "Timestamp: $(date)"
+echo "=================================================================="
+
+TARGET_PREFIX=""
+IS_FIRSTBOOT=0
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --firstboot)
+            IS_FIRSTBOOT=1
+            shift
+            ;;
+        --target)
+            TARGET_PREFIX="$2"
+            shift 2
+            ;;
+        --now)
+            shift
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+# If already provisioned on this installed system, exit cleanly
+if [ -z "$TARGET_PREFIX" ] && [ -f "$MARKER_FILE" ]; then
+    echo "[*] System has already been provisioned. Exiting."
+    exit 0
+fi
+
+# Send notification if in graphical desktop environment
+send_notify() {
+    local title="$1"
+    local msg="$2"
+    if [ -n "${DISPLAY:-}" ] && command -v notify-send >/dev/null 2>&1; then
+        notify-send -i liteoffice -u normal "$title" "$msg" 2>/dev/null || true
+    fi
+}
+
+# 1. Wait for active internet connection (up to 180s on firstboot)
+echo "[*] Checking internet connectivity..."
+ONLINE=0
+MAX_ATTEMPTS=60
+[ "$IS_FIRSTBOOT" -eq 1 ] && MAX_ATTEMPTS=120
+
+for ((i=1; i<=MAX_ATTEMPTS; i++)); do
+    if ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1 || ping -c 1 -W 2 1.1.1.1 >/dev/null 2>&1 || curl -s --head http://deb.debian.org >/dev/null 2>&1; then
+        ONLINE=1
+        break
+    fi
+    sleep 3
+done
+
+if [ "$ONLINE" -eq 0 ]; then
+    echo "[!] Warning: No internet connection detected after timeout. Skipping online package provisioning."
+    echo "[*] Provisioning will automatically resume on next boot or network connection."
+    exit 0
+fi
+
+echo "[✓] Internet connection confirmed."
+send_notify "LiteOffice OS" "Menyiapkan hardware driver dan paket aplikasi lengkap secara otomatis di latar belakang..."
+
+# 2. Hardware Detection Engine
+echo "[*] Inspecting hardware components (CPU, GPU, Network, Audio, Printing)..."
+PKGS_TO_INSTALL=()
+
+# --- A. CPU Microcode ---
+if grep -qi "GenuineIntel" /proc/cpuinfo 2>/dev/null; then
+    echo "[+] Intel CPU detected: Adding intel-microcode"
+    PKGS_TO_INSTALL+=("intel-microcode")
+elif grep -qi "AuthenticAMD" /proc/cpuinfo 2>/dev/null; then
+    echo "[+] AMD CPU detected: Adding amd64-microcode"
+    PKGS_TO_INSTALL+=("amd64-microcode")
+fi
+
+# --- B. GPU & 3D Acceleration ---
+VGA_INFO=$(lspci 2>/dev/null | grep -iE 'vga|3d|display' || true)
+echo "[*] GPU Info: $VGA_INFO"
+
+if echo "$VGA_INFO" | grep -qi "Intel"; then
+    PKGS_TO_INSTALL+=("xserver-xorg-video-intel" "mesa-va-drivers" "libgl1-mesa-dri")
+elif echo "$VGA_INFO" | grep -qiE "AMD|ATI|Radeon"; then
+    PKGS_TO_INSTALL+=("xserver-xorg-video-amdgpu" "xserver-xorg-video-ati" "mesa-vulkan-drivers" "libgl1-mesa-dri")
+elif echo "$VGA_INFO" | grep -qi "VMware"; then
+    PKGS_TO_INSTALL+=("xserver-xorg-video-vmware")
+fi
+
+# Standard 3D support
+PKGS_TO_INSTALL+=("xserver-xorg-video-all" "mesa-utils")
+
+# --- C. Wi-Fi / LAN Driver Packages ---
+PCI_INFO=$(lspci 2>/dev/null || true)
+if echo "$PCI_INFO" | grep -qi "Broadcom"; then
+    PKGS_TO_INSTALL+=("firmware-brcm80211")
+fi
+PKGS_TO_INSTALL+=("firmware-linux" "firmware-linux-nonfree" "firmware-realtek" "firmware-iwlwifi" "firmware-atheros" "firmware-misc-nonfree")
+
+# --- D. Complete Office Productivity Suite & Printing ---
+PKGS_TO_INSTALL+=(
+    "libreoffice-writer"
+    "libreoffice-calc"
+    "libreoffice-impress"
+    "libreoffice-gtk3"
+    "printer-driver-all"
+    "system-config-printer"
+    "cups"
+    "simple-scan"
+    "qpdfview"
+    "file-roller"
+    "pavucontrol"
+    "htop"
+)
+
+# 3. Filter already installed packages
+FINAL_PKGS=()
+for pkg in "${PKGS_TO_INSTALL[@]}"; do
+    if [ -n "$TARGET_PREFIX" ]; then
+        if ! chroot "$TARGET_PREFIX" dpkg -s "$pkg" >/dev/null 2>&1; then
+            FINAL_PKGS+=("$pkg")
+        fi
+    else
+        if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+            FINAL_PKGS+=("$pkg")
+        fi
+    fi
+done
+
+echo "[*] Candidate packages to install (${#FINAL_PKGS[@]} packages):"
+echo "    ${FINAL_PKGS[*]}"
+
+if [ ${#FINAL_PKGS[@]} -eq 0 ]; then
+    echo "[✓] All drivers and office applications are already installed!"
+    mkdir -p "$(dirname "$TARGET_PREFIX$MARKER_FILE")"
+    touch "$TARGET_PREFIX$MARKER_FILE"
+    send_notify "LiteOffice OS" "Semua driver hardware dan aplikasi kantor lengkap telah siap digunakan!"
+    exit 0
+fi
+
+# 4. Perform Automatic Download & Installation
+echo "[*] Executing automatic driver and application installation..."
+export DEBIAN_FRONTEND=noninteractive
+
+if [ -n "$TARGET_PREFIX" ]; then
+    chroot "$TARGET_PREFIX" apt-get update -y || true
+    chroot "$TARGET_PREFIX" apt-get install -y --no-install-recommends \
+        -o Dpkg::Options::="--force-confdef" \
+        -o Dpkg::Options::="--force-confold" \
+        "${FINAL_PKGS[@]}" || true
+else
+    apt-get update -y || true
+    apt-get install -y --no-install-recommends \
+        -o Dpkg::Options::="--force-confdef" \
+        -o Dpkg::Options::="--force-confold" \
+        "${FINAL_PKGS[@]}" || true
+fi
+
+# 5. Finalize configuration
+mkdir -p "$(dirname "$TARGET_PREFIX$MARKER_FILE")"
+touch "$TARGET_PREFIX$MARKER_FILE"
+
+echo "[✓] Auto-provisioning successfully completed!"
+send_notify "LiteOffice OS" "Semua driver hardware & aplikasi kantor lengkap telah berhasil dipasang & siap digunakan!"

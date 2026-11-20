@@ -1,0 +1,23 @@
+#!/sbin/openrc-run
+# ==============================================================================
+# LiteOffice OS — Automatic Driver & Software Auto-Provision Service (OpenRC)
+# Runs once on first boot in background to pull drivers & complete applications.
+# ==============================================================================
+description="Automatically provisions hardware drivers and complete office suite"
+
+depend() {
+    after networkmanager default
+    keyword -prefix -vserver
+}
+
+start() {
+    if [ -f /var/lib/liteoffice/provisioned ]; then
+        return 0
+    fi
+
+    ebegin "Starting background hardware driver & application auto-provisioning"
+    start-stop-daemon --start --background --make-pidfile \
+        --pidfile /run/liteoffice-auto-provision.pid \
+        --exec /usr/local/bin/liteoffice-auto-provision -- --firstboot
+    eend $?
+}

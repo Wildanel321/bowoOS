@@ -1,58 +1,82 @@
 #!/bin/bash
 # ==============================================================================
-# Lite Office OS — Session & Power Control Dialog
+# Lite Office OS — Session & Power Control Controller
+# Orchestrates GUI dialog, CLI fallback, and safe system shutdown / reboot
 # ==============================================================================
 set -eu
 
-ACTION=""
-if which zenity >/dev/null 2>&1; then
-    ACTION=$(zenity --list --title="Lite Office OS — Power Control" \
-        --width=320 --height=260 \
-        --column="Action" --column="Description" \
-        "Logout" "Exit current desktop session" \
-        "Reboot" "Restart the computer" \
-        "Poweroff" "Completely shut down the computer" \
-        "Cancel" "Return to desktop" \
-        --print-column=1 2>/dev/null || echo "Cancel")
-else
-    # Fallback to simple console read if zenity is absent
-    echo "1) Logout"
-    echo "2) Reboot"
-    echo "3) Poweroff"
-    read -r -p "Select action: " num
-    case "$num" in
-        1) ACTION="Logout" ;;
-        2) ACTION="Reboot" ;;
-        3) ACTION="Poweroff" ;;
-        *) ACTION="Cancel" ;;
-    esac
+ACTION="${1:-}"
+
+# If no argument specified, determine best interface (GUI vs CLI)
+if [ -z "$ACTION" ]; then
+    if [ -n "${DISPLAY:-}" ] && [ -x /usr/local/bin/liteoffice-session ]; then
+        exec /usr/local/bin/liteoffice-session
+    elif [ -n "${DISPLAY:-}" ] && command -v python3 >/dev/null 2>&1 && [ -f /usr/local/bin/liteoffice-session ]; then
+        exec python3 /usr/local/bin/liteoffice-session
+    else
+        # CLI Selection
+        echo "=================================================================="
+        echo "  LiteOffice OS — Session & Power Control"
+        echo "=================================================================="
+        echo "1) Shut Down (Poweroff)"
+        echo "2) Restart (Reboot)"
+        echo "3) Sign Out (Logout)"
+        echo "4) Lock Screen"
+        echo "5) Sleep (Suspend)"
+        echo "6) Cancel"
+        read -r -p "Select action [1-6]: " num
+        case "$num" in
+            1) ACTION="poweroff" ;;
+            2) ACTION="reboot" ;;
+            3) ACTION="logout" ;;
+            4) ACTION="lock" ;;
+            5) ACTION="suspend" ;;
+            *) exit 0 ;;
+        esac
+    fi
 fi
 
+# Execute corresponding system action safely
 case "$ACTION" in
-    Logout)
-        openbox --exit || pkill -u "$USER" openbox || true
-        ;;
-    Reboot)
-        # Display Shutdown Wallpaper & Splash
-        pcmanfm -w /usr/share/wallpapers/liteoffice/liteoffice-shutdown.png --wallpaper-mode=stretch 2>/dev/null || true
-        killall tint2 2>/dev/null || true
-        if [ -x /usr/local/bin/liteoffice-splash ]; then
-            /usr/local/bin/liteoffice-splash --shutdown "Restarting computer..." &
-        fi
-        sleep 1
-        sudo /sbin/reboot || sudo reboot
-        ;;
-    Poweroff)
+    poweroff|shutdown)
         # Display Shutdown Wallpaper & Splash
         pcmanfm -w /usr/share/wallpapers/liteoffice/liteoffice-shutdown.png --wallpaper-mode=stretch 2>/dev/null || true
         killall tint2 2>/dev/null || true
         if [ -x /usr/local/bin/liteoffice-splash ]; then
             /usr/local/bin/liteoffice-splash --shutdown "Powering down system..." &
         fi
+        sync
         sleep 1
-        sudo /sbin/poweroff || sudo poweroff
+        sudo /sbin/poweroff || sudo poweroff || sudo shutdown -h now
         ;;
+
+    reboot|restart)
+        # Display Shutdown Wallpaper & Splash
+        pcmanfm -w /usr/share/wallpapers/liteoffice/liteoffice-shutdown.png --wallpaper-mode=stretch 2>/dev/null || true
+        killall tint2 2>/dev/null || true
+        if [ -x /usr/local/bin/liteoffice-splash ]; then
+            /usr/local/bin/liteoffice-splash --shutdown "Restarting computer..." &
+        fi
+        sync
+        sleep 1
+        sudo /sbin/reboot || sudo reboot || sudo shutdown -r now
+        ;;
+
+    logout|exit)
+        openbox --exit || pkill -u "$USER" openbox || true
+        ;;
+
+    lock)
+        xlock -mode blank 2>/dev/null || slock 2>/dev/null || xset dpms force off 2>/dev/null || true
+        ;;
+
+    suspend|sleep)
+        sync
+        systemctl suspend 2>/dev/null || sudo zzz 2>/dev/null || xset dpms force off 2>/dev/null || true
+        ;;
+
     *)
-        exit 0
+        echo "Usage: lite-logout [poweroff|reboot|logout|lock|suspend]"
+        exit 1
         ;;
 esac

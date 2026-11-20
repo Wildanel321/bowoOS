@@ -1,0 +1,14 @@
+menubar {
+    padding: 2px 6px;
+    background-color: #1e222b;
+}
+
+menubar > menuitem {
+    padding: 4px 10px;
+    color: #cbd5e1;
+}
+
+menubar > menuitem:hover {
+    background-color: #2e3646;
+    color: #ffffff;
+}

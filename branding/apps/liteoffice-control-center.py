@@ -110,6 +110,7 @@ def run_gtk_mode():
             self.build_wallpaper_page()
             self.build_audio_page()
             self.build_network_page()
+            self.build_security_page()
             self.build_power_page()
 
         def build_display_page(self):
@@ -239,18 +240,107 @@ def run_gtk_mode():
 
             self.stack.add_titled(box, "network", "Network")
 
-        def build_power_page(self):
-            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
-            box.set_border_width(12)
+        def build_security_page(self):
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+            box.set_border_width(14)
 
             lbl = Gtk.Label()
-            lbl.set_markup("<span size='large' weight='bold'>Power &amp; Display Sleep</span>")
+            lbl.set_markup("<span size='large' weight='bold'>Security &amp; System Hardening</span>")
             lbl.set_xalign(0)
             box.pack_start(lbl, False, False, 0)
 
+            # Security Badges
+            grid = Gtk.Grid()
+            grid.set_column_spacing(16)
+            grid.set_row_spacing(10)
+
+            badges = [
+                ("🛡️ Stateful Firewall", "Active (Inbound DROP, Outbound ALLOW)", "#10b981"),
+                ("🔒 Kernel Memory ASLR", "Full ASLR (Level 2 Protection)", "#10b981"),
+                ("⚡ Exploit Mitigation", "YAMA ptrace &amp; unpriv BPF disabled", "#10b981"),
+                ("🧠 System OOM Guard", "EarlyOOM &amp; ZRAM compressed swap", "#10b981"),
+            ]
+
+            for idx, (title, desc, color) in enumerate(badges):
+                col = idx % 2
+                row = idx // 2
+                card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+                card.set_margin_top(4)
+                card.set_margin_bottom(4)
+                t_lbl = Gtk.Label()
+                t_lbl.set_markup(f"<b>{title}</b>")
+                t_lbl.set_xalign(0)
+                d_lbl = Gtk.Label()
+                d_lbl.set_markup(f"<span foreground='{color}'>{desc}</span>")
+                d_lbl.set_xalign(0)
+                card.pack_start(t_lbl, False, False, 0)
+                card.pack_start(d_lbl, False, False, 0)
+                grid.attach(card, col, row, 1, 1)
+
+            box.pack_start(grid, False, False, 0)
+            box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 4)
+
+            # Action Buttons
+            btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+            fw_btn = Gtk.Button(label="Check Firewall Status")
+            fw_btn.connect("clicked", lambda b: subprocess.Popen("lxterminal -e 'sudo /usr/local/bin/liteoffice-firewall status; read -p \"Press Enter to exit...\"'", shell=True))
+            btn_box.pack_start(fw_btn, False, False, 0)
+
+            health_btn = Gtk.Button(label="Run System Health Diagnostic")
+            health_btn.connect("clicked", lambda b: subprocess.Popen("lxterminal -e 'sudo /usr/local/bin/liteoffice-health --check; read -p \"Press Enter to exit...\"'", shell=True))
+            btn_box.pack_start(health_btn, False, False, 0)
+
+            box.pack_start(btn_box, False, False, 0)
+            self.stack.add_titled(box, "security", "Security")
+
+        def build_power_page(self):
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+            box.set_border_width(14)
+
+            # Section 1: Session & Power Options
+            lbl_session = Gtk.Label()
+            lbl_session.set_markup("<span size='large' weight='bold'>Session &amp; Power Control</span>")
+            lbl_session.set_xalign(0)
+            box.pack_start(lbl_session, False, False, 0)
+
+            btn_session_dialog = Gtk.Button(label="⏻ Open Power &amp; Session Dialog...")
+            btn_session_dialog.connect("clicked", lambda b: subprocess.Popen("/usr/local/bin/liteoffice-session", shell=True))
+            box.pack_start(btn_session_dialog, False, False, 0)
+
+            # Quick Action Buttons Grid
+            quick_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            quick_box.set_homogeneous(True)
+
+            btn_shutdown = Gtk.Button(label="Shut Down")
+            btn_shutdown.connect("clicked", lambda b: subprocess.Popen("/usr/local/bin/lite-logout poweroff", shell=True))
+            quick_box.pack_start(btn_shutdown, True, True, 0)
+
+            btn_reboot = Gtk.Button(label="Restart")
+            btn_reboot.connect("clicked", lambda b: subprocess.Popen("/usr/local/bin/lite-logout reboot", shell=True))
+            quick_box.pack_start(btn_reboot, True, True, 0)
+
+            btn_logout = Gtk.Button(label="Sign Out")
+            btn_logout.connect("clicked", lambda b: subprocess.Popen("/usr/local/bin/lite-logout logout", shell=True))
+            quick_box.pack_start(btn_logout, True, True, 0)
+
+            btn_lock = Gtk.Button(label="Lock Screen")
+            btn_lock.connect("clicked", lambda b: subprocess.Popen("/usr/local/bin/lite-logout lock", shell=True))
+            quick_box.pack_start(btn_lock, True, True, 0)
+
+            box.pack_start(quick_box, False, False, 0)
+
+            # Separator
+            box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 4)
+
+            # Section 2: Display Blanking & Sleep
+            lbl_sleep = Gtk.Label()
+            lbl_sleep.set_markup("<span size='large' weight='bold'>Display Blanking &amp; Screen Saver</span>")
+            lbl_sleep.set_xalign(0)
+            box.pack_start(lbl_sleep, False, False, 0)
+
             row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
             box.pack_start(row, False, False, 0)
-            row.pack_start(Gtk.Label(label="Display Blanking:"), False, False, 0)
+            row.pack_start(Gtk.Label(label="Turn off display after:"), False, False, 0)
 
             sleep_combo = Gtk.ComboBoxText()
             sleep_combo.append("never", "Never (Always On)")

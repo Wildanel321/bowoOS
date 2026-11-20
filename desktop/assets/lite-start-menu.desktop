@@ -1,8 +1,9 @@
 [Desktop Entry]
 Type=Application
 Name=Applications
-Comment=Open Application Menu
-Exec=openbox --show-menu root-menu
+Comment=Open LiteOffice OS Start Menu
+Exec=/usr/local/bin/liteoffice-menu
 Icon=liteoffice
 Terminal=false
 Categories=System;
+StartupNotify=false

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Install OS (Terminal Mode)
+Comment=Install LiteOffice OS to disk using interactive terminal installer
+Exec=lxterminal --title="LiteOffice OS — System Installer" --geometry=90x30 -e sudo /usr/local/bin/lite-installer
+Icon=utilities-terminal
+Terminal=false
+Categories=System;Settings;
+StartupNotify=true

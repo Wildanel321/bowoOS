@@ -46,8 +46,12 @@ if target in content:
 fi
 
 echo "[*] Adjusting OpenRC runlevel registrations..."
+chroot "$ROOTFS_DIR" rc-update add devpts sysinit 2>/dev/null || true
 chroot "$ROOTFS_DIR" rc-update add udev sysinit 2>/dev/null || true
+chroot "$ROOTFS_DIR" rc-update add liteoffice-firewall boot 2>/dev/null || true
 chroot "$ROOTFS_DIR" rc-update add networkmanager default 2>/dev/null || true
+chroot "$ROOTFS_DIR" rc-update add liteoffice-health default 2>/dev/null || true
+chroot "$ROOTFS_DIR" rc-update add lite-oom default 2>/dev/null || true
 chroot "$ROOTFS_DIR" rc-update del hwclock.sh sysinit 2>/dev/null || true
 chroot "$ROOTFS_DIR" rc-update del pulseaudio-enable-autospawn default 2>/dev/null || true
 chroot "$ROOTFS_DIR" rc-update del plymouth default 2>/dev/null || true

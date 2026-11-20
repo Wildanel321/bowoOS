@@ -1,0 +1,113 @@
+#!/bin/bash
+# ==============================================================================
+# LiteOffice OS — System Health, Stability & Process Watchdog Daemon
+# Automatically supervises RAM pressure, disk space, and essential GUI processes
+# ==============================================================================
+set -euo pipefail
+
+LOG_DIR="/var/log/liteoffice"
+LOG_FILE="$LOG_DIR/health.log"
+mkdir -p "$LOG_DIR"
+
+check_health() {
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local mem_avail_mb=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)
+    local mem_total_mb=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)
+    local disk_avail_mb=$(df -m / 2>/dev/null | awk 'NR==2 {print $4}' || echo 999)
+    local zram_status="INACTIVE"
+    local firewall_status="INACTIVE"
+
+    if grep -q "/dev/zram0" /proc/swaps 2>/dev/null; then
+        zram_status="ACTIVE"
+    fi
+
+    if iptables -L INPUT -n 2>/dev/null | grep -q "Chain INPUT (policy DROP)"; then
+        firewall_status="ACTIVE"
+    fi
+
+    local status="HEALTHY"
+    local issues=()
+
+    # 1. Memory pressure watchdog
+    if [ "$mem_total_mb" -gt 0 ] && [ "$mem_avail_mb" -lt 25 ]; then
+        status="WARNING"
+        issues+=("Critically low memory available (${mem_avail_mb}MB)")
+        # Trigger page cache trim
+        if [ -w /proc/sys/vm/drop_caches ]; then
+            echo 1 > /proc/sys/vm/drop_caches 2>/dev/null || true
+        fi
+    fi
+
+    # 2. Disk space watchdog & auto-cleanup
+    if [ "$disk_avail_mb" -lt 150 ]; then
+        status="WARNING"
+        issues+=("Low disk space (${disk_avail_mb}MB)")
+        # Auto clean stale tmp files older than 1 day
+        find /tmp -type f -atime +1 -delete 2>/dev/null || true
+        find /var/tmp -type f -atime +1 -delete 2>/dev/null || true
+        rm -rf /var/cache/apt/archives/*.deb 2>/dev/null || true
+    fi
+
+    # 3. ZRAM check
+    if [ "$zram_status" != "ACTIVE" ]; then
+        status="WARNING"
+        issues+=("ZRAM compressed swap is not active")
+        # Attempt to restart zram-swap if down
+        /etc/init.d/zram-swap start >/dev/null 2>&1 || true
+    fi
+
+    # 4. Firewall check
+    if [ "$firewall_status" != "ACTIVE" ]; then
+        # Auto restart firewall to maintain high security
+        /etc/init.d/liteoffice-firewall start >/dev/null 2>&1 || true
+    fi
+
+    # 5. Desktop GUI process watchdog (if Xorg is running and liteuser session is active)
+    if pgrep -x Xorg >/dev/null 2>&1; then
+        if ! pgrep -u 1000 -x openbox >/dev/null 2>&1 && [ -f /tmp/.X11-unix/X0 ]; then
+            # Revive openbox for user if accidentally crashed
+            su - liteuser -c "DISPLAY=:0 openbox --replace &" 2>/dev/null || true
+        fi
+        if ! pgrep -u 1000 -x tint2 >/dev/null 2>&1 && [ -f /tmp/.X11-unix/X0 ]; then
+            # Revive taskbar
+            su - liteuser -c "DISPLAY=:0 tint2 &" 2>/dev/null || true
+        fi
+    fi
+
+    local issue_str="None"
+    if [ ${#issues[@]} -gt 0 ]; then
+        issue_str=$(IFS='; '; echo "${issues[*]}")
+    fi
+
+    echo "[$timestamp] STATUS=$status RAM_AVAIL=${mem_avail_mb}MB/${mem_total_mb}MB DISK_AVAIL=${disk_avail_mb}MB ZRAM=$zram_status FIREWALL=$firewall_status ISSUES=[$issue_str]" >> "$LOG_FILE"
+
+    if [ "${1:-}" = "--check" ]; then
+        echo "=================================================================="
+        echo "  LiteOffice OS — System Health & Security Diagnostic"
+        echo "=================================================================="
+        echo "Timestamp     : $timestamp"
+        echo "Overall Status: $status"
+        echo "RAM Available : ${mem_avail_mb} MB / ${mem_total_mb} MB"
+        echo "Disk Free     : ${disk_avail_mb} MB"
+        echo "ZRAM Swap     : $zram_status"
+        echo "Firewall Shield: $firewall_status"
+        echo "Issues        : $issue_str"
+        echo "=================================================================="
+        if [ "$status" = "HEALTHY" ]; then
+            return 0
+        else
+            return 1
+        fi
+    fi
+}
+
+if [ "${1:-}" = "--check" ]; then
+    check_health --check
+    exit $?
+fi
+
+# Daemon loop: runs every 30 seconds
+while true; do
+    check_health
+    sleep 30
+done

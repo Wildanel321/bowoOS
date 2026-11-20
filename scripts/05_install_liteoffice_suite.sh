@@ -93,6 +93,8 @@ DEBIAN_FRONTEND=noninteractive chroot "$ROOTFS_DIR" apt-get install -y \
     grub-common \
     grub-pc-bin \
     grub2-common \
+    efibootmgr \
+    x11-xserver-utils \
     "${EXTRA_PKGS[@]}"
 
 # Ensure systemd-sysv does not hijack OpenRC init

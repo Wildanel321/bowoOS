@@ -5,7 +5,7 @@
 description="Supervises memory pressure to prevent system hard-freezing"
 
 command="/usr/bin/earlyoom"
-command_args="-m 4 -s 10 -r 60 --avoid '(Xorg|openbox|init|udevd)'"
+command_args="-m 4 -s 10 -r 60 --avoid '(Xorg|openbox|init|udevd|tint2|dbus-daemon|liteoffice-health)'"
 command_background=true
 pidfile="/run/lite-oom.pid"
 

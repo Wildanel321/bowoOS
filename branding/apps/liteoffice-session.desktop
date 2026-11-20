@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Session & Power Control
+GenericName=Power Control
+Comment=Shut down, restart, suspend, lock, or log out of LiteOffice OS
+Exec=/usr/local/bin/lite-logout
+Icon=system-shutdown
+Terminal=false
+Categories=System;Utility;
+Keywords=shutdown;reboot;restart;logout;session;power;sleep;lock;
+StartupNotify=true

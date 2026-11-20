@@ -124,7 +124,7 @@ def run_gtk_mode():
 
     class AboutWindow(Gtk.Window):
         def __init__(self):
-            super().__init__(title="About office lite")
+            super().__init__(title="About LiteOffice OS")
             self.set_default_size(580, 420)
             self.set_position(Gtk.WindowPosition.CENTER)
             self.set_resizable(False)

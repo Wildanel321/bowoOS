@@ -82,3 +82,8 @@ if grep -q "lite_install=1" /proc/cmdline 2>/dev/null; then
     sudo -E /usr/local/bin/liteoffice-installer &
 fi
 
+# 10. Background Hardware Driver & Application Auto-Provisioner (runs on installed system)
+if [ ! -f /var/lib/liteoffice/provisioned ] && [ -x /usr/local/bin/liteoffice-auto-provision ]; then
+    /usr/local/bin/liteoffice-auto-provision --firstboot &
+fi
+

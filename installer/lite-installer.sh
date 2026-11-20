@@ -8,15 +8,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# If GUI display is active and user didn't force --cli, launch GTK installer
-if [ -n "${DISPLAY:-}" ] && [ "${1:-}" != "--cli" ]; then
-    if [ -x "/usr/local/bin/liteoffice-installer" ]; then
-        exec sudo -E /usr/local/bin/liteoffice-installer "$@"
-    elif [ -f "$SCRIPT_DIR/liteoffice-installer.py" ]; then
-        exec sudo -E python3 "$SCRIPT_DIR/liteoffice-installer.py" "$@"
-    fi
-fi
-
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -33,8 +24,8 @@ if [ "$TARGET_DISK" = "--auto" ]; then
 fi
 
 if [ "$(id -u)" -ne 0 ]; then
-    echo -e "${RED}[!] Error: The LiteOffice OS installer must be executed as root.${NC}" >&2
-    exit 1
+    AUTH_FILE="${XAUTHORITY:-$HOME/.Xauthority}"
+    exec sudo DISPLAY="${DISPLAY:-:0}" XAUTHORITY="$AUTH_FILE" "$0" "$@"
 fi
 
 BOOT_MODE="BIOS"
@@ -228,8 +219,8 @@ fi
 # 5. Copy System Files
 echo "[*] Synchronizing LiteOffice OS files to target partition..."
 SOURCE_DIR="/"
-for candidate in /run/live/rootfs /run/live/rofs /rofs; do
-    if [ -d "$candidate" ]; then
+for candidate in /run/live/rootfs/filesystem.squashfs /run/live/rootfs /run/live/rofs /rofs; do
+    if [ -d "$candidate/usr" ]; then
         SOURCE_DIR="$candidate"
         break
     fi
@@ -274,12 +265,74 @@ UUID=${HOME_UUID}    /home      ext4    defaults,noatime          0 2
 EOF
 fi
 
+# 6b. Configure Full APT Repositories for Upgrades and Package Management
+echo "[*] Configuring Debian 12 Bookworm package repositories in /etc/apt/sources.list..."
+mkdir -p "$MOUNT_TARGET/etc/apt"
+cat << 'EOF' > "$MOUNT_TARGET/etc/apt/sources.list"
+# LiteOffice OS 1.0 LTS — Official Package Repositories (Debian 12 Bookworm)
+deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+deb-src http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+
+deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+deb-src http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+
+deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
+deb-src http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
+
+deb http://deb.debian.org/debian bookworm-backports main contrib non-free non-free-firmware
+deb-src http://deb.debian.org/debian bookworm-backports main contrib non-free non-free-firmware
+EOF
+
+# Ensure fallback DNS nameservers exist
+if [ ! -s "$MOUNT_TARGET/etc/resolv.conf" ]; then
+    cat << 'EOF' > "$MOUNT_TARGET/etc/resolv.conf"
+nameserver 8.8.8.8
+nameserver 1.1.1.1
+EOF
+fi
+
+# 6c. Deploy Linux LTS Kernel and Initramfs to Target /boot
+echo "[*] Deploying Linux LTS kernel and initramfs to target /boot..."
+mkdir -p "$MOUNT_TARGET/boot"
+
+K_SRC=""
+for kp in /run/live/medium/live/vmlinuz /cdrom/live/vmlinuz /live/vmlinuz /boot/vmlinuz-6.6.78-lite-x86_64 /boot/vmlinuz; do
+    if [ -f "$kp" ]; then
+        K_SRC="$kp"
+        break
+    fi
+done
+
+I_SRC=""
+for ip in /run/live/medium/live/initrd.img /cdrom/live/initrd.img /live/initrd.img /boot/initrd.img-6.6.78-lite-x86_64 /boot/initrd.img; do
+    if [ -f "$ip" ]; then
+        I_SRC="$ip"
+        break
+    fi
+done
+
+if [ -n "$K_SRC" ] && [ -n "$I_SRC" ]; then
+    cp "$K_SRC" "$MOUNT_TARGET/boot/vmlinuz-6.6.78-lite-x86_64"
+    cp "$I_SRC" "$MOUNT_TARGET/boot/initrd.img-6.6.78-lite-x86_64"
+    ln -sf "vmlinuz-6.6.78-lite-x86_64" "$MOUNT_TARGET/boot/vmlinuz" 2>/dev/null || true
+    ln -sf "initrd.img-6.6.78-lite-x86_64" "$MOUNT_TARGET/boot/initrd.img" 2>/dev/null || true
+    echo "    - Deployed kernel and initramfs to $MOUNT_TARGET/boot"
+fi
+
 # 7. Configure Target Bootloader (GRUB)
 echo "[*] Installing GRUB bootloader (${BOOT_MODE})..."
 mount --bind /dev "$MOUNT_TARGET/dev"
 mount --bind /dev/pts "$MOUNT_TARGET/dev/pts"
 mount -t proc proc "$MOUNT_TARGET/proc"
 mount -t sysfs sysfs "$MOUNT_TARGET/sys"
+mount --bind /run "$MOUNT_TARGET/run"
+if [ -d /sys/firmware/efi/efivars ]; then
+    mkdir -p "$MOUNT_TARGET/sys/firmware/efi/efivars"
+    mount --bind /sys/firmware/efi/efivars "$MOUNT_TARGET/sys/firmware/efi/efivars" 2>/dev/null || true
+fi
+
+echo "[*] Regenerating target initramfs for installed storage..."
+chroot "$MOUNT_TARGET" update-initramfs -u -k all 2>/dev/null || true
 
 if [ "$BOOT_MODE" = "UEFI" ]; then
     EFI_TARGET="x86_64-efi"
@@ -294,9 +347,46 @@ fi
 
 chroot "$MOUNT_TARGET" grub-mkconfig -o /boot/grub/grub.cfg 2>/dev/null || true
 
+# Verify grub.cfg contains boot entry; generate direct fallback if empty
+if [ ! -f "$MOUNT_TARGET/boot/grub/grub.cfg" ] || ! grep -q "menuentry " "$MOUNT_TARGET/boot/grub/grub.cfg" 2>/dev/null; then
+    echo "[*] Generating fallback grub.cfg for LiteOffice OS..."
+    mkdir -p "$MOUNT_TARGET/boot/grub"
+    cat << EOF > "$MOUNT_TARGET/boot/grub/grub.cfg"
+set default=0
+set timeout=5
+
+insmod all_video
+insmod font
+insmod gfxterm
+terminal_output gfxterm console
+
+menuentry "LiteOffice OS 1.0 LTS" --class os {
+    linux /boot/vmlinuz-6.6.78-lite-x86_64 root=UUID=${ROOT_UUID} rw quiet loglevel=3
+    initrd /boot/initrd.img-6.6.78-lite-x86_64
+}
+menuentry "LiteOffice OS 1.0 LTS (Recovery Mode)" --class os {
+    linux /boot/vmlinuz-6.6.78-lite-x86_64 root=UUID=${ROOT_UUID} rw single
+    initrd /boot/initrd.img-6.6.78-lite-x86_64
+}
+EOF
+fi
+
+# 7d. Register Hardware Driver & Application Auto-Provisioner
+echo "[*] Registering automated driver and application auto-provisioner on target..."
+chroot "$MOUNT_TARGET" rc-update add liteoffice-auto-provision default 2>/dev/null || true
+
+if ping -c 1 -W 1 8.8.8.8 >/dev/null 2>&1; then
+    echo "[*] Internet connection detected! Pre-downloading hardware drivers and full application suite..."
+    /usr/local/bin/liteoffice-auto-provision --target "$MOUNT_TARGET" || true
+fi
+
 # 8. Clean unmount target
 echo "[*] Finalizing and unmounting target filesystem..."
 sync
+if [ -d "$MOUNT_TARGET/sys/firmware/efi/efivars" ]; then
+    umount -l "$MOUNT_TARGET/sys/firmware/efi/efivars" 2>/dev/null || true
+fi
+umount -l "$MOUNT_TARGET/run" 2>/dev/null || true
 umount -l "$MOUNT_TARGET/dev/pts" 2>/dev/null || true
 umount -l "$MOUNT_TARGET/dev" 2>/dev/null || true
 umount -l "$MOUNT_TARGET/proc" 2>/dev/null || true

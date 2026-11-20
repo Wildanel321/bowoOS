@@ -1,14 +1,63 @@
-#!/bin/sh
+#!/bin/bash
 # ==============================================================================
-# LiteOffice OS — Graphical Installer Launcher Wrapper
-# Guarantees X11 authorization for root and launches GTK 3 installer
+# LiteOffice OS — Robust Installer Launcher & Self-Healing Execution Engine
+# Guarantees root X11 authorization, resolves any missing dependencies
+# on-the-fly, and provides immediate terminal fallback if GUI display fails.
 # ==============================================================================
-xhost +local:root 2>/dev/null || true
-xhost +local: 2>/dev/null || true
+set -e
 
-export DISPLAY="${DISPLAY:-:0}"
-if [ -z "${XAUTHORITY:-}" ] && [ -f "$HOME/.Xauthority" ]; then
-    export XAUTHORITY="$HOME/.Xauthority"
+LOG_FILE="/tmp/liteoffice-installer-launch.log"
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+echo "[*] LiteOffice OS Installer Launcher initiated: $(date)"
+
+# 1. Ensure required tools exist; auto-install if missing on-the-fly
+REQUIRED_PKGS=()
+if ! command -v python3 >/dev/null 2>&1; then REQUIRED_PKGS+=("python3"); fi
+if ! dpkg -s python3-gi >/dev/null 2>&1; then REQUIRED_PKGS+=("python3-gi"); fi
+if ! dpkg -s gir1.2-gtk-3.0 >/dev/null 2>&1; then REQUIRED_PKGS+=("gir1.2-gtk-3.0"); fi
+if ! command -v parted >/dev/null 2>&1; then REQUIRED_PKGS+=("parted"); fi
+if ! command -v rsync >/dev/null 2>&1; then REQUIRED_PKGS+=("rsync"); fi
+
+if [ ${#REQUIRED_PKGS[@]} -gt 0 ]; then
+    echo "[!] Missing required installer packages: ${REQUIRED_PKGS[*]}"
+    echo "[*] Executing on-the-fly package installation..."
+    if command -v apt-get >/dev/null 2>&1; then
+        sudo apt-get update -y || true
+        sudo apt-get install -y --no-install-recommends "${REQUIRED_PKGS[@]}" || true
+    fi
 fi
 
-exec sudo -E /usr/local/bin/liteoffice-installer "$@"
+# 2. X11 Environment & Authorization
+export DISPLAY="${DISPLAY:-:0}"
+AUTH_FILE="${XAUTHORITY:-$HOME/.Xauthority}"
+if [ -f "$AUTH_FILE" ]; then
+    export XAUTHORITY="$AUTH_FILE"
+fi
+xhost +SI:localuser:root >/dev/null 2>&1 || true
+xhost +local:root >/dev/null 2>&1 || true
+xhost +local: >/dev/null 2>&1 || true
+
+# 3. Determine if GUI is viable and attempt launch
+GUI_LAUNCHED=0
+if [ -n "$DISPLAY" ] && [ -x "/usr/local/bin/liteoffice-installer" ]; then
+    echo "[*] Attempting Graphical GTK3 Installer launch on display $DISPLAY..."
+    # Verify GTK can connect to the X display
+    if python3 -c "import gi; gi.require_version('Gtk', '3.0'); from gi.repository import Gtk; Gtk.init_check(None)" 2>/dev/null; then
+        sudo DISPLAY="$DISPLAY" XAUTHORITY="$AUTH_FILE" /usr/local/bin/liteoffice-installer "$@" && GUI_LAUNCHED=1
+    else
+        echo "[!] Warning: GTK display check failed on $DISPLAY. Triggering immediate Terminal Fallback."
+    fi
+fi
+
+# 4. Immediate Fallback if GUI failed to open or crashed
+if [ "$GUI_LAUNCHED" -eq 0 ]; then
+    echo "[*] Launching robust interactive Terminal Installer..."
+    if [ -n "$DISPLAY" ] && command -v lxterminal >/dev/null 2>&1; then
+        exec lxterminal --title="LiteOffice OS — Storage Installer (Terminal Mode)" --geometry=90x30 -e sudo DISPLAY="$DISPLAY" XAUTHORITY="$AUTH_FILE" /usr/local/bin/liteoffice-installer --cli
+    elif [ -n "$DISPLAY" ] && command -v xterm >/dev/null 2>&1; then
+        exec xterm -title "LiteOffice OS — Storage Installer (Terminal Mode)" -geometry 90x30 -e sudo DISPLAY="$DISPLAY" XAUTHORITY="$AUTH_FILE" /usr/local/bin/liteoffice-installer --cli
+    else
+        exec sudo /usr/local/bin/liteoffice-installer --cli
+    fi
+fi

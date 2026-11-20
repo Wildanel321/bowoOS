@@ -19,15 +19,16 @@ import subprocess
 # Auto-elevate to root via sudo if launched as regular user
 if os.geteuid() != 0:
     try:
+        subprocess.run("xhost +SI:localuser:root >/dev/null 2>&1 || true", shell=True)
         subprocess.run("xhost +local:root >/dev/null 2>&1 || true", shell=True)
         subprocess.run("xhost +local: >/dev/null 2>&1 || true", shell=True)
-        env_vars = []
-        if "DISPLAY" in os.environ:
-            env_vars.append(f"DISPLAY={os.environ['DISPLAY']}")
+        disp = os.environ.get("DISPLAY", ":0")
         xauth = os.environ.get("XAUTHORITY") or os.path.expanduser("~/.Xauthority")
+        sudo_cmd = ["sudo", f"DISPLAY={disp}"]
         if os.path.exists(xauth):
-            env_vars.append(f"XAUTHORITY={xauth}")
-        os.execvp("sudo", ["sudo", "-E"] + env_vars + [sys.executable] + sys.argv)
+            sudo_cmd.append(f"XAUTHORITY={xauth}")
+        sudo_cmd.extend([sys.executable] + sys.argv)
+        os.execvp("sudo", sudo_cmd)
     except Exception as e:
         print(f"Error elevating to root: {e}", file=sys.stderr)
         sys.exit(1)
@@ -368,8 +369,13 @@ class InstallWorker:
         # 5. Synchronize Files from Live System
         self.set_progress(0.45, "Synchronizing system files from Live image...", step=3)
         source_dir = "/"
-        for candidate in ["/run/live/rootfs", "/run/live/rofs", "/rofs"]:
-            if os.path.isdir(candidate):
+        for candidate in [
+            "/run/live/rootfs/filesystem.squashfs",
+            "/run/live/rootfs",
+            "/run/live/rofs",
+            "/rofs",
+        ]:
+            if os.path.isdir(os.path.join(candidate, "usr")):
                 source_dir = candidate
                 break
         self.log(f"Copying OS from source: {source_dir} -> {mount_target} ...\n")
@@ -426,6 +432,32 @@ class InstallWorker:
             f.write("\n".join(fstab_lines) + "\n")
         self.log("Generated /etc/fstab with UUIDs.\n")
 
+        # 6b. Configure Full APT Repositories for Upgrades and Package Management
+        apt_dir = os.path.join(mount_target, "etc", "apt")
+        os.makedirs(apt_dir, exist_ok=True)
+        sources_list_content = """# LiteOffice OS 1.0 LTS — Official Package Repositories (Debian 12 Bookworm)
+deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+deb-src http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+
+deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+deb-src http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+
+deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
+deb-src http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
+
+deb http://deb.debian.org/debian bookworm-backports main contrib non-free non-free-firmware
+deb-src http://deb.debian.org/debian bookworm-backports main contrib non-free non-free-firmware
+"""
+        with open(os.path.join(apt_dir, "sources.list"), "w") as sf:
+            sf.write(sources_list_content)
+        self.log("Configured /etc/apt/sources.list with full Debian Bookworm mirrors.\n")
+
+        # Ensure fallback DNS nameservers exist
+        resolv_conf = os.path.join(mount_target, "etc", "resolv.conf")
+        if not os.path.exists(resolv_conf) or os.path.getsize(resolv_conf) == 0:
+            with open(resolv_conf, "w") as rf:
+                rf.write("nameserver 8.8.8.8\nnameserver 1.1.1.1\n")
+
         # 7. Configure System Identity & User
         self.set_progress(0.86, f"Configuring hostname '{hostname}' and user account '{username}'...", step=4)
         with open(f"{mount_target}/etc/hostname", "w") as f:
@@ -445,17 +477,65 @@ class InstallWorker:
         proc.communicate(input=chpasswd_input)
         self.log(f"Configured credentials for user: {username}\n")
 
+        # 7b. Deploy Linux LTS Kernel & Initramfs to Target /boot
+        self.set_progress(0.88, "Deploying Linux LTS kernel and initramfs to target /boot...", step=5)
+        target_boot = os.path.join(mount_target, "boot")
+        os.makedirs(target_boot, exist_ok=True)
+
+        k_src = None
+        for kp in [
+            "/run/live/medium/live/vmlinuz",
+            "/cdrom/live/vmlinuz",
+            "/live/vmlinuz",
+            "/boot/vmlinuz-6.6.78-lite-x86_64",
+            "/boot/vmlinuz",
+        ]:
+            if os.path.isfile(kp):
+                k_src = kp
+                break
+
+        i_src = None
+        for ip in [
+            "/run/live/medium/live/initrd.img",
+            "/cdrom/live/initrd.img",
+            "/live/initrd.img",
+            "/boot/initrd.img-6.6.78-lite-x86_64",
+            "/boot/initrd.img",
+        ]:
+            if os.path.isfile(ip):
+                i_src = ip
+                break
+
+        if k_src and i_src:
+            shutil.copy2(k_src, os.path.join(target_boot, "vmlinuz-6.6.78-lite-x86_64"))
+            shutil.copy2(i_src, os.path.join(target_boot, "initrd.img-6.6.78-lite-x86_64"))
+            try:
+                os.symlink("vmlinuz-6.6.78-lite-x86_64", os.path.join(target_boot, "vmlinuz"))
+            except OSError:
+                pass
+            try:
+                os.symlink("initrd.img-6.6.78-lite-x86_64", os.path.join(target_boot, "initrd.img"))
+            except OSError:
+                pass
+            self.log(f"Deployed kernel ({k_src}) and initramfs ({i_src}) to {target_boot}\n")
+        else:
+            self.log(f"Warning: Live media kernel/initrd not found; relying on pre-staged boot binaries.\n")
+
         # 8. Install Bootloader (GRUB)
         self.set_progress(0.90, f"Installing GRUB 2.12 bootloader ({boot_mode})...", step=5)
         run_command(f"mount --bind /dev {mount_target}/dev", self.log)
         run_command(f"mount --bind /dev/pts {mount_target}/dev/pts", self.log)
         run_command(f"mount -t proc proc {mount_target}/proc", self.log)
         run_command(f"mount -t sysfs sysfs {mount_target}/sys", self.log)
+        run_command(f"mount --bind /run {mount_target}/run", self.log)
         if os.path.isdir("/sys/firmware/efi/efivars"):
             os.makedirs(f"{mount_target}/sys/firmware/efi/efivars", exist_ok=True)
             run_command(f"mount --bind /sys/firmware/efi/efivars {mount_target}/sys/firmware/efi/efivars 2>/dev/null || true", self.log)
 
         try:
+            self.log("Regenerating target initramfs for installed storage...\n")
+            run_command(f"chroot {mount_target} update-initramfs -u -k all 2>/dev/null || true", self.log)
+
             if boot_mode == "UEFI":
                 efi_target = "x86_64-efi" if os.uname().machine == "x86_64" else "i386-efi"
                 self.log(f"Executing grub-install for UEFI ({efi_target})...\n")
@@ -470,9 +550,56 @@ class InstallWorker:
 
             self.log("Generating final grub.cfg...\n")
             run_command(f"chroot {mount_target} grub-mkconfig -o /boot/grub/grub.cfg", self.log)
+
+            # Validate generated grub.cfg; generate rock-solid fallback entry if empty
+            target_grub_cfg = f"{mount_target}/boot/grub/grub.cfg"
+            has_entry = False
+            if os.path.isfile(target_grub_cfg):
+                with open(target_grub_cfg, "r") as gf:
+                    if "menuentry " in gf.read():
+                        has_entry = True
+
+            if not has_entry:
+                self.log("Synthesizing direct boot entry for LiteOffice OS in grub.cfg...\n")
+                direct_cfg = f"""# LiteOffice OS Static Bootloader Configuration
+set default=0
+set timeout=5
+
+insmod all_video
+insmod font
+insmod gfxterm
+terminal_output gfxterm console
+
+menuentry "LiteOffice OS 1.0 LTS" --class os {{
+    linux /boot/vmlinuz-6.6.78-lite-x86_64 root=UUID={root_uuid} rw quiet loglevel=3
+    initrd /boot/initrd.img-6.6.78-lite-x86_64
+}}
+menuentry "LiteOffice OS 1.0 LTS (Recovery Mode)" --class os {{
+    linux /boot/vmlinuz-6.6.78-lite-x86_64 root=UUID={root_uuid} rw single
+    initrd /boot/initrd.img-6.6.78-lite-x86_64
+}}
+"""
+                os.makedirs(os.path.dirname(target_grub_cfg), exist_ok=True)
+                with open(target_grub_cfg, "w") as gf:
+                    gf.write(direct_cfg)
+                self.log("Wrote direct fallback bootloader configuration.\n")
+
+            # Register automated hardware driver & application provisioner on target
+            self.set_progress(0.96, "Configuring automated driver and application provisioner...", step=6)
+            run_command(f"chroot {mount_target} rc-update add liteoffice-auto-provision default 2>/dev/null || true", self.log)
+
+            # If host installer has active internet connection, execute pre-provisioning now
+            try:
+                res = subprocess.run(["ping", "-c", "1", "-W", "1", "8.8.8.8"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                if res.returncode == 0:
+                    self.log("Active internet connection detected. Automatically downloading drivers and applications...\n")
+                    run_command(f"/usr/local/bin/liteoffice-auto-provision --target {mount_target}", self.log)
+            except Exception as pe:
+                self.log(f"Auto-provisioning deferred to first boot: {pe}\n")
         finally:
             if os.path.isdir(f"{mount_target}/sys/firmware/efi/efivars"):
                 subprocess.run(["umount", "-l", f"{mount_target}/sys/firmware/efi/efivars"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["umount", "-l", f"{mount_target}/run"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             subprocess.run(["umount", "-l", f"{mount_target}/dev/pts"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             subprocess.run(["umount", "-l", f"{mount_target}/dev"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             subprocess.run(["umount", "-l", f"{mount_target}/proc"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -1047,12 +1174,12 @@ def run_gtk_installer():
                 t.start()
 
         def _on_back_clicked(self, widget):
-            curr = self.stack.get_visible_child_name()
-            if curr == "summary":
-                self.stack.set_visible_child_name("config")
-                self.btn_back.set_sensitive(False)
-                self.btn_next.set_label("Next >")
-                self.btn_next.get_style_context().remove_class("destructive-action")
+            self.stack.set_visible_child_name("config")
+            self.btn_back.set_sensitive(False)
+            self.btn_next.set_label("Next >")
+            self.btn_next.get_style_context().remove_class("destructive-action")
+            self.btn_next.set_sensitive(True)
+            self.btn_cancel.set_sensitive(True)
 
         def _on_worker_progress(self, frac, status_text, step=1):
             GLib.idle_add(self._update_progress_ui, frac, status_text, step)
@@ -1180,7 +1307,7 @@ def run_cli_installer():
 
     worker = InstallWorker(
         config,
-        lambda frac, msg: print(f"[{int(frac * 100)}%] {msg}"),
+        lambda frac, msg, step=1: print(f"[{int(frac * 100)}%] {msg}"),
         lambda log: sys.stdout.write(log),
         lambda success, msg: print(f"\nResult: {'SUCCESS' if success else 'FAILED'} - {msg}")
     )

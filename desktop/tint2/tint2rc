@@ -133,6 +133,7 @@ launcher_item_app = /usr/share/applications/pcmanfm.desktop
 launcher_item_app = /usr/share/applications/liteoffice-control-center.desktop
 launcher_item_app = /usr/share/applications/liteoffice-monitor.desktop
 launcher_item_app = /usr/share/applications/lxterminal.desktop
+launcher_item_app = /usr/share/applications/liteoffice-session.desktop
 
 # ------------------------------------------------------------------------------
 # Clock

@@ -67,6 +67,14 @@ rm -rf "$ISO_TREE"
 mkdir -p "$ISO_TREE"/{live,boot/grub/themes/liteoffice}
 mkdir -p "$OUTPUT_DIR"
 
+# 1b. Stage Kernel and Initramfs into rootfs /boot so installed target has bootloader binaries
+echo "[*] Ensuring Linux 6.6 LTS kernel and initramfs exist in rootfs /boot..."
+mkdir -p "$ROOTFS_DIR/boot"
+cp "$KERNEL_BIN" "$ROOTFS_DIR/boot/vmlinuz-6.6.78-lite-${ARCH}"
+cp "$INITRAMFS_IMG" "$ROOTFS_DIR/boot/initrd.img-6.6.78-lite-${ARCH}"
+ln -sf "vmlinuz-6.6.78-lite-${ARCH}" "$ROOTFS_DIR/boot/vmlinuz"
+ln -sf "initrd.img-6.6.78-lite-${ARCH}" "$ROOTFS_DIR/boot/initrd.img"
+
 # 2. Package Root Filesystem into Compressed SquashFS
 echo "[*] Compressing rootfs into SquashFS (/live/filesystem.squashfs)..."
 mksquashfs "$ROOTFS_DIR" "$ISO_TREE/live/filesystem.squashfs" \
@@ -98,19 +106,17 @@ cat << 'EOF' > "$ISO_TREE/boot/grub/grub.cfg"
 set timeout=5
 set default=0
 
-# Video and Serial Terminal Initialization
+# Video and Console Terminal Initialization
 insmod all_video
 insmod font
 insmod png
 insmod gfxterm
-insmod serial
 
-serial --unit=0 --speed=115200
-terminal_input console serial
-terminal_output gfxterm serial
+terminal_input console
+terminal_output gfxterm console
 
-set gfxmode=auto
-set gfxpayload=keep
+set gfxmode=1024x768,800x600,auto
+set gfxpayload=text
 
 if [ -f /boot/grub/themes/liteoffice/theme.txt ]; then
     set theme=/boot/grub/themes/liteoffice/theme.txt
@@ -118,28 +124,34 @@ fi
 
 menuentry "LiteOffice OS 1.0 LTS (Live Desktop Session)" --class os {
     echo "Loading LiteOffice OS 6.6 LTS Kernel..."
-    linux /live/vmlinuz boot=live console=ttyS0 console=tty1 quiet loglevel=3
+    linux /live/vmlinuz boot=live console=tty1 quiet loglevel=3
     echo "Loading Userspace Initramfs..."
     initrd /live/initrd.img
 }
 
 menuentry "LiteOffice OS 1.0 LTS (Safe Graphics / VESA Mode)" --class os {
     echo "Loading LiteOffice OS in Safe Graphics Mode..."
-    linux /live/vmlinuz boot=live nomodeset xforcevesa console=ttyS0 console=tty1 quiet loglevel=3
+    linux /live/vmlinuz boot=live nomodeset xforcevesa console=tty1 quiet loglevel=3
     echo "Loading Userspace Initramfs..."
     initrd /live/initrd.img
 }
 
 menuentry "LiteOffice OS 1.0 LTS (Direct System Installer)" --class os {
     echo "Loading LiteOffice OS Direct Hardware Installer..."
-    linux /live/vmlinuz boot=live lite_install=1 console=ttyS0 console=tty1 quiet loglevel=3
+    linux /live/vmlinuz boot=live lite_install=1 console=tty1 quiet loglevel=3
     echo "Loading Userspace Initramfs..."
     initrd /live/initrd.img
 }
 
 menuentry "LiteOffice OS Early Maintenance Shell" --class recovery {
     echo "Dropping to early userspace maintenance shell..."
-    linux /live/vmlinuz break console=ttyS0 console=tty1 quiet=0
+    linux /live/vmlinuz break console=tty1 quiet=0
+    initrd /live/initrd.img
+}
+
+menuentry "LiteOffice OS Headless / QEMU Serial Console" --class os {
+    echo "Loading LiteOffice OS in Headless Serial Mode..."
+    linux /live/vmlinuz boot=live console=ttyS0 console=tty1 quiet loglevel=3
     initrd /live/initrd.img
 }
 

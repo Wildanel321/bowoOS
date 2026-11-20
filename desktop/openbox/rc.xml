@@ -131,9 +131,19 @@
     </keybind>
 
     <!-- Super (Windows key) Shortcuts for Modern Workflow -->
+    <keybind key="Super_L">
+      <action name="Execute">
+        <command>/usr/local/bin/liteoffice-menu</command>
+      </action>
+    </keybind>
     <keybind key="W-space">
-      <action name="ShowMenu">
-        <menu>root-menu</menu>
+      <action name="Execute">
+        <command>/usr/local/bin/liteoffice-menu</command>
+      </action>
+    </keybind>
+    <keybind key="A-F1">
+      <action name="Execute">
+        <command>/usr/local/bin/liteoffice-menu</command>
       </action>
     </keybind>
     <keybind key="W-d">
@@ -150,6 +160,11 @@
       </action>
     </keybind>
     <keybind key="W-l">
+      <action name="Execute">
+        <command>/usr/local/bin/lite-logout</command>
+      </action>
+    </keybind>
+    <keybind key="C-A-Delete">
       <action name="Execute">
         <command>/usr/local/bin/lite-logout</command>
       </action>

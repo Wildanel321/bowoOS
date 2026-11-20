@@ -1,0 +1,26 @@
+#!/sbin/openrc-run
+# ==============================================================================
+# LiteOffice OS — Mount Virtual Kernel Filesystems (/dev/pts, /dev/shm)
+# Essential for pseudo-terminals, terminal emulators (LXTerminal), and IPC
+# ==============================================================================
+description="Mounts /dev/pts and /dev/shm for terminal emulators and POSIX IPC"
+
+depend() {
+    provide devpts
+    before udev
+    keyword -prefix -vserver -lxc
+}
+
+start() {
+    ebegin "Mounting /dev/pts pseudo-terminal filesystem"
+    mkdir -p /dev/pts /dev/shm
+    if ! mountpoint -q /dev/pts; then
+        mount -t devpts devpts /dev/pts -o gid=5,mode=620,ptmxmode=666 2>/dev/null || \
+        mount -t devpts devpts /dev/pts 2>/dev/null || true
+    fi
+
+    if ! mountpoint -q /dev/shm; then
+        mount -t tmpfs tmpfs /dev/shm -o mode=1777 2>/dev/null || true
+    fi
+    eend 0
+}

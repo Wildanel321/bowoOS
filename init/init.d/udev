@@ -15,7 +15,14 @@ depend() {
 }
 
 start_pre() {
-    mkdir -p /run/udev
+    mkdir -p /run/udev /dev/pts /dev/shm
+    if ! mountpoint -q /dev/pts; then
+        mount -t devpts devpts /dev/pts -o gid=5,mode=620,ptmxmode=666 2>/dev/null || \
+        mount -t devpts devpts /dev/pts 2>/dev/null || true
+    fi
+    if ! mountpoint -q /dev/shm; then
+        mount -t tmpfs tmpfs /dev/shm -o mode=1777 2>/dev/null || true
+    fi
     if [ -w /sys/kernel/uevent_helper ]; then
         echo "" > /sys/kernel/uevent_helper
     fi

@@ -57,10 +57,13 @@ mknod -m 620 "$WORK_DIR/dev/tty1" c 4 1 2>/dev/null || true
 cat << 'EOF' > "$WORK_DIR/init"
 #!/bin/sh
 # ==============================================================================
-# Lite Office OS — Early Stage /init
+# LiteOffice OS — Early Userspace /init
 # ==============================================================================
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 export HOME=/root
+
+# Ensure terminal line discipline produces clean newlines and correct columns
+stty -F /dev/console onlcr opost sane 2>/dev/null || stty onlcr opost sane 2>/dev/null || true
 
 # Mount fundamental virtual filesystems
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || {
@@ -71,22 +74,17 @@ mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 mount -t tmpfs -o mode=0755,nodev,nosuid tmpfs /run
 
-# Clear screen if not in quiet mode
+# Refresh terminal settings after /dev and /dev/console are mounted
+stty -F /dev/console onlcr opost sane 2>/dev/null || true
+
+# Clear screen if supported
 clear 2>/dev/null || true
 
-echo "=================================================================="
-echo "         _     _ _         ____   __  __ _            ____   ____ "
-echo "        | |   (_) |_ ___  / ___| / _|/ _(_) ___ ___  / __ \ / ___|"
-echo "        | |   | | __/ _ \ \___ \| |_| |_| |/ __/ _ \| |  | |\___ \ "
-echo "        | |___| | ||  __/  ___) |  _|  _| | (_|  __/| |__| | ___) |"
-echo "        |_____|_|\__\___| |____/|_| |_| |_|\___\___(_)____(_)____/ "
-echo "=================================================================="
-echo " Lite Office OS — Early Userspace Bootloader"
-echo " Kernel Release : $(uname -r)"
-echo " Detected Memory: $(awk '/MemTotal/ {printf "%.1f MB", $2/1024}' /proc/meminfo)"
-echo " Detected Cores : $(grep -c '^processor' /proc/cpuinfo 2>/dev/null || echo 1)"
-echo " Boot Time (sec): $(awk '{print $1}' /proc/uptime)"
-echo "=================================================================="
+# Clean, 76-column safe, professional early boot banner (No ASCII slop)
+echo "============================================================================"
+echo "  LiteOffice OS 1.0 LTS - Early Userspace Bootloader"
+echo "  Kernel: $(uname -r) | Memory: $(awk '/MemTotal/ {printf "%.1f MB", $2/1024}' /proc/meminfo) | Cores: $(grep -c '^processor' /proc/cpuinfo 2>/dev/null || echo 1)"
+echo "============================================================================"
 
 # Parse kernel command line parameters
 ROOT_DEV=""
@@ -119,27 +117,37 @@ if [ "$LIVE_BOOT" -eq 1 ] || [ "$ROOT_DEV" = "live" ]; then
     mkdir -p /cdrom /rofs /cow /newroot
     LIVE_DEV=""
 
-    # Try finding device by volume label first
-    LIVE_DEV=$(findfs LABEL="LITEOFFICE_LIVE" 2>/dev/null || blkid -L "LITEOFFICE_LIVE" 2>/dev/null || echo "")
+    # Allow kernel drivers (SCSI/SATA/USB) time to discover devices and populate /dev
+    for attempt in 1 2 3 4 5 6 7 8 9 10; do
+        mdev -s 2>/dev/null || true
 
-    # Fallback: scan all block devices for /live/filesystem.squashfs
-    if [ -z "$LIVE_DEV" ]; then
-        for i in 1 2 3 4 5; do
-            for dev in /dev/sr* /dev/vd* /dev/sd*; do
-                if [ -b "$dev" ]; then
-                    mount -o ro "$dev" /cdrom 2>/dev/null || true
+        # 1. Try finding device by volume label first
+        LIVE_DEV=$(findfs LABEL="LITEOFFICE_LIVE" 2>/dev/null || blkid -L "LITEOFFICE_LIVE" 2>/dev/null || echo "")
+        if [ -n "$LIVE_DEV" ] && [ -b "$LIVE_DEV" ]; then
+            if mount -o ro "$LIVE_DEV" /cdrom 2>/dev/null || mount -t iso9660 -o ro "$LIVE_DEV" /cdrom 2>/dev/null; then
+                if [ -f "/cdrom/live/filesystem.squashfs" ]; then
+                    break
+                fi
+                umount /cdrom 2>/dev/null || true
+            fi
+            LIVE_DEV=""
+        fi
+
+        # 2. Scan all possible block devices (/dev/sr*, /dev/sd*, /dev/vd*, /dev/nvme*, /dev/loop*)
+        for dev in /dev/sr[0-9]* /dev/sd[a-z]* /dev/vd[a-z]* /dev/nvme[0-9]*n[0-9]* /dev/loop*; do
+            if [ -b "$dev" ]; then
+                if mount -o ro "$dev" /cdrom 2>/dev/null || mount -t iso9660 -o ro "$dev" /cdrom 2>/dev/null; then
                     if [ -f "/cdrom/live/filesystem.squashfs" ]; then
                         LIVE_DEV="$dev"
                         break 2
                     fi
                     umount /cdrom 2>/dev/null || true
                 fi
-            done
-            sleep 1
+            fi
         done
-    else
-        mount -o ro "$LIVE_DEV" /cdrom 2>/dev/null || true
-    fi
+
+        sleep 1
+    done
 
     if [ -f "/cdrom/live/filesystem.squashfs" ]; then
         echo "[+] Found Live media at $LIVE_DEV. Mounting compressed rootfs..."
@@ -154,11 +162,13 @@ if [ "$LIVE_BOOT" -eq 1 ] || [ "$ROOT_DEV" = "live" ]; then
         mkdir -p /newroot/run/live/rootfs
         mount --bind /rofs /newroot/run/live/rootfs 2>/dev/null || true
         
-        echo "[+] Transitioning to Live LiteOffice OS session..."
+        echo "[+] Transitioning to Live LiteOffice OS desktop session..."
         umount /run /sys /proc 2>/dev/null || true
         exec switch_root /newroot "$INIT_BIN"
     else
         echo "[-] ERROR: /live/filesystem.squashfs not found on live boot media!"
+        echo "[*] Registered block devices:"
+        cat /proc/partitions 2>/dev/null || true
         exec /bin/sh </dev/console >/dev/console 2>&1
     fi
 fi

@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""
+liteoffice-splash — High-performance Graphical Boot & Shutdown Splash for LiteOffice OS
+Supports:
+  liteoffice-splash --boot          : Shows the booting logo splash during desktop startup
+  liteoffice-splash --shutdown [MSG]: Shows the shutdown wallpaper during system poweroff
+"""
+
+import sys
+import os
+import signal
+import time
+
+def run_splash():
+    mode = "boot"
+    msg = "Starting office lite..."
+    if "--shutdown" in sys.argv:
+        mode = "shutdown"
+        msg = "Shutting down system..."
+        for arg in sys.argv[1:]:
+            if arg != "--shutdown" and not arg.startswith("-"):
+                msg = arg
+                break
+
+    try:
+        import gi
+        gi.require_version('Gtk', '3.0')
+        from gi.repository import Gtk, Gdk, GdkPixbuf, GLib
+    except Exception as e:
+        print(f"GTK3 unavailable: {e}", file=sys.stderr)
+        sys.exit(0)
+
+    class SplashWindow(Gtk.Window):
+        def __init__(self):
+            super().__init__(type=Gtk.WindowType.TOPLEVEL)
+            self.set_title("office lite")
+            self.set_decorated(False)
+            self.fullscreen()
+            self.set_app_paintable(True)
+            self.connect("draw", self.on_draw)
+            self.connect("key-press-event", lambda w, e: Gtk.main_quit())
+
+            # Load appropriate background image
+            if mode == "shutdown":
+                paths = [
+                    "/usr/share/wallpapers/liteoffice/liteoffice-shutdown.png",
+                    os.path.expanduser("~/Pictures/liteoffice-shutdown.png"),
+                    "/usr/share/wallpapers/liteoffice/liteoffice-default.png"
+                ]
+            else:
+                paths = [
+                    "/usr/share/wallpapers/liteoffice/liteoffice-default.png",
+                    "/usr/share/wallpapers/liteoffice/liteoffice-1024x768.png"
+                ]
+
+            self.bg_pixbuf = None
+            for p in paths:
+                if os.path.exists(p):
+                    try:
+                        self.bg_pixbuf = GdkPixbuf.Pixbuf.new_from_file(p)
+                        break
+                    except Exception:
+                        pass
+
+            self.scaled_pixbuf = None
+            self.last_w = 0
+            self.last_h = 0
+
+            # Boot mode: automatically dismiss after 1.8 seconds or when desktop ready
+            if mode == "boot":
+                GLib.timeout_add(1800, Gtk.main_quit)
+                GLib.timeout_add(200, self.check_desktop_ready)
+
+            # Connect signal handlers
+            signal.signal(signal.SIGTERM, lambda s, f: Gtk.main_quit())
+            signal.signal(signal.SIGINT, lambda s, f: Gtk.main_quit())
+
+        def check_desktop_ready(self):
+            if os.path.exists("/tmp/.desktop_ready"):
+                Gtk.main_quit()
+                return False
+            return True
+
+        def on_draw(self, widget, cr):
+            alloc = widget.get_allocation()
+            w, h = alloc.width, alloc.height
+
+            # Fill deep cosmic background
+            cr.set_source_rgb(0.02, 0.04, 0.08)
+            cr.paint()
+
+            if self.bg_pixbuf:
+                if self.scaled_pixbuf is None or self.last_w != w or self.last_h != h:
+                    self.scaled_pixbuf = self.bg_pixbuf.scale_simple(w, h, GdkPixbuf.InterpType.BILINEAR)
+                    self.last_w = w
+                    self.last_h = h
+
+                if self.scaled_pixbuf:
+                    Gdk.cairo_set_source_pixbuf(cr, self.scaled_pixbuf, 0, 0)
+                    cr.paint()
+            return True
+
+    win = SplashWindow()
+    win.show_all()
+    # Force X server update immediately
+    while Gtk.events_pending():
+        Gtk.main_iteration_do(False)
+    Gtk.main()
+
+if __name__ == "__main__":
+    run_splash()

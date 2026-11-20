@@ -374,3 +374,41 @@ This file serves as an immutable, timestamped record of PRAR (Perceive, Reason, 
 - Visual inspection via `read_file` confirmed crisp galaxy stars, majestic palm tree emblem, and legible typography.
 - Deployed wallpapers to staging rootfs (`/usr/share/wallpapers/liteoffice/`) and regenerated Live ISO.
 
+---
+
+## [2026-11-20T13:50:00+07:00] Stage 12: Booting Logo, About App, and Shutdown Wallpaper Integration
+
+### 1. Perceive
+- **Input**: User requested three core desktop and OS identity features:
+  1. `booting logo` (graphical boot logo and splash on boot)
+  2. `about` (system about app with OS specifications, hardware details, and branding)
+  3. `shutdown wallpaper` (dedicated wallpaper and screen displayed during poweroff and reboot)
+- **Artifacts Analyzed**: `branding/apps/liteoffice-about.py`, `branding/plymouth/liteoffice/`, `desktop/bin/lite-logout`, `desktop/openbox/autostart`, `branding/wallpapers/`.
+
+### 2. Reason & Engineering Diagnostics
+- **Diagnostic 1 (Booting Logo Architecture)**:
+  - Multi-tier boot splash approach:
+    1. Plymouth boot splash theme updated with authentic palm tree medallion watermark (`branding/plymouth/liteoffice/watermark.png`) and smooth spinner.
+    2. Developed lightweight Python GTK3 graphical splash `/usr/local/bin/liteoffice-splash --boot` integrated into `desktop/openbox/autostart`. Ensures an instant, elegant booting logo transition when X11 starts, automatically dismissing within 1.8s or when desktop services (`tint2`, `pcmanfm`) are ready.
+- **Diagnostic 2 (About Application Architecture)**:
+  - Enhanced `branding/apps/liteoffice-about.py`:
+    1. Features the new palm oil tree emblem prominently (96x96 / 128x128).
+    2. Displays full system telemetry: OS Name, Version, Kernel release, Architecture, CPU model and cores, Memory with live free/used breakdown, ZRAM compressed swap status, Disk storage usage, and Adaptive Hardware Profile Tier.
+    3. Action buttons: "System Monitor" (opens `liteoffice-monitor`), "Control Center" (opens `liteoffice-control-center`), and "Close".
+    4. Created desktop shortcut: `/home/liteuser/Desktop/About-LiteOffice.desktop` and added to Openbox root menu.
+- **Diagnostic 3 (Shutdown Wallpaper Architecture)**:
+  - Rendered dedicated high-res shutdown wallpapers (`liteoffice-shutdown.png` at 1920x1080 and 1024x768):
+    1. Deep galaxy starry backdrop matching default wallpaper.
+    2. Central palm oil tree emblem.
+    3. Crimson-amber glowing status pill: `SHUTTING DOWN SYSTEM...`.
+  - Updated `desktop/bin/lite-logout`:
+    1. Upon selecting "Poweroff" or "Reboot", immediately switches PCManFM wallpaper to `liteoffice-shutdown.png`.
+    2. Dismisses desktop panels (`killall tint2`) and launches fullscreen shutdown screen (`liteoffice-splash --shutdown`).
+    3. Executes `sudo poweroff` / `sudo reboot` seamlessly.
+
+### 3. Act & Verify
+- Rendered all icons (16 to 512px) in `branding/logo/` via `render_sawit_icons.py`.
+- Rendered shutdown wallpapers and Plymouth watermark via `render_shutdown_and_boot_assets.py`.
+- Verified `liteoffice-about --cli` and GTK3 compilation.
+- Rebuilt Live Hybrid ISO `output/liteoffice-1.0-x86_64.iso`.
+

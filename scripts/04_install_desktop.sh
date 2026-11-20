@@ -143,7 +143,8 @@ cp "$PROJECT_ROOT/desktop/bin/lite-logout" "$ROOTFS_DIR/usr/local/bin/lite-logou
 cp "$PROJECT_ROOT/desktop/bin/lite-launch-office" "$ROOTFS_DIR/usr/local/bin/lite-launch-office"
 cp "$PROJECT_ROOT/desktop/bin/lite-launch-spreadsheet" "$ROOTFS_DIR/usr/local/bin/lite-launch-spreadsheet"
 cp "$PROJECT_ROOT/desktop/bin/lite-info" "$ROOTFS_DIR/usr/local/bin/lite-info"
-chmod +x "$ROOTFS_DIR/usr/local/bin"/{lite-logout,lite-launch-office,lite-launch-spreadsheet,lite-info}
+cp "$PROJECT_ROOT/desktop/bin/liteoffice-splash" "$ROOTFS_DIR/usr/local/bin/liteoffice-splash"
+chmod +x "$ROOTFS_DIR/usr/local/bin"/{lite-logout,lite-launch-office,lite-launch-spreadsheet,lite-info,liteoffice-splash}
 
 # 5. Deploy Openbox Configuration
 echo "[*] Configuring Openbox window manager..."

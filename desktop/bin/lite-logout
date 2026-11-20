@@ -33,9 +33,23 @@ case "$ACTION" in
         openbox --exit || pkill -u "$USER" openbox || true
         ;;
     Reboot)
+        # Display Shutdown Wallpaper & Splash
+        pcmanfm -w /usr/share/wallpapers/liteoffice/liteoffice-shutdown.png --wallpaper-mode=stretch 2>/dev/null || true
+        killall tint2 2>/dev/null || true
+        if [ -x /usr/local/bin/liteoffice-splash ]; then
+            /usr/local/bin/liteoffice-splash --shutdown "Restarting computer..." &
+        fi
+        sleep 1
         sudo /sbin/reboot || sudo reboot
         ;;
     Poweroff)
+        # Display Shutdown Wallpaper & Splash
+        pcmanfm -w /usr/share/wallpapers/liteoffice/liteoffice-shutdown.png --wallpaper-mode=stretch 2>/dev/null || true
+        killall tint2 2>/dev/null || true
+        if [ -x /usr/local/bin/liteoffice-splash ]; then
+            /usr/local/bin/liteoffice-splash --shutdown "Powering down system..." &
+        fi
+        sleep 1
         sudo /sbin/poweroff || sudo poweroff
         ;;
     *)

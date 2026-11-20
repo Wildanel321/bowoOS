@@ -19,14 +19,20 @@ if [ -f /etc/lite-profile ]; then
     . /etc/lite-profile
 fi
 
-# 3. Set neutral background color before wallpaper loads
-xsetroot -solid "#1e222a" 2>/dev/null || true
+# 3. Launch Graphical Booting Logo Splash
+if [ -x /usr/local/bin/liteoffice-splash ]; then
+    /usr/local/bin/liteoffice-splash --boot &
+fi
 
-# 4. Start PCManFM in Desktop Management Mode (renders desktop icons & wallpaper)
+# 4. Set neutral background color before wallpaper loads
+xsetroot -solid "#0a0f1d" 2>/dev/null || true
+
+# 5. Start PCManFM in Desktop Management Mode (renders desktop icons & wallpaper)
 pcmanfm --desktop &
 
-# 5. Start Tint2 Modern Panel
+# 6. Start Tint2 Modern Panel
 tint2 &
+touch /tmp/.desktop_ready 2>/dev/null || true
 
 # 6. Start Lightweight ALSA Volume Tray Icon
 if which volumeicon >/dev/null 2>&1; then

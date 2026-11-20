@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=About office lite
+Comment=View system specifications, hardware profiling, and release info
+Exec=/usr/local/bin/liteoffice-about
+Icon=liteoffice
+Terminal=false
+Categories=System;Settings;
+StartupNotify=true

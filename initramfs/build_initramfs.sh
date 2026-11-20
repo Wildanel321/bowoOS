@@ -82,7 +82,7 @@ clear 2>/dev/null || true
 
 # Clean, 76-column safe, professional early boot banner (No ASCII slop)
 echo "============================================================================"
-echo "  LiteOffice OS 1.0 LTS - Early Userspace Bootloader"
+echo "  LiteOffice OS 1.0 LTS — Early Userspace Bootloader"
 echo "  Kernel: $(uname -r) | Memory: $(awk '/MemTotal/ {printf "%.1f MB", $2/1024}' /proc/meminfo) | Cores: $(grep -c '^processor' /proc/cpuinfo 2>/dev/null || echo 1)"
 echo "============================================================================"
 
@@ -158,9 +158,12 @@ if [ "$LIVE_BOOT" -eq 1 ] || [ "$ROOT_DEV" = "live" ]; then
         mkdir -p /cow/upper /cow/work
         mount -t overlay overlay -o lowerdir=/rofs,upperdir=/cow/upper,workdir=/cow/work /newroot
         
-        # Make rootfs available for installer rsync
-        mkdir -p /newroot/run/live/rootfs
+        # Make rootfs and live media available for installer and system tools
+        mkdir -p /newroot/run/live/rootfs /newroot/run/live/medium /newroot/run/live/rofs /newroot/run/live/overlay
         mount --bind /rofs /newroot/run/live/rootfs 2>/dev/null || true
+        mount --bind /cdrom /newroot/run/live/medium 2>/dev/null || true
+        mount --bind /rofs /newroot/run/live/rofs 2>/dev/null || true
+        mount --bind /cow /newroot/run/live/overlay 2>/dev/null || true
         
         echo "[+] Transitioning to Live LiteOffice OS desktop session..."
         umount /run /sys /proc 2>/dev/null || true

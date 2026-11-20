@@ -62,13 +62,17 @@ def read_processes_top(n=10):
         for l in lines[1:]:
             parts = l.split(None, 5)
             if len(parts) >= 6:
+                try:
+                    rss_val = f"{int(parts[5]) // 1024} MB"
+                except (ValueError, TypeError):
+                    rss_val = f"{parts[5]} KB"
                 procs.append({
                     "pid": parts[0],
                     "user": parts[1],
                     "cmd": parts[2],
                     "cpu": parts[3],
                     "mem": parts[4],
-                    "rss_mb": f"{int(parts[5]) // 1024} MB"
+                    "rss_mb": rss_val
                 })
     except Exception:
         pass
@@ -207,7 +211,7 @@ def run_gtk_mode():
     Gtk.main()
 
 if __name__ == "__main__":
-    if "--cli" in sys.argv:
+    if "--cli" in sys.argv or not os.environ.get("DISPLAY"):
         run_cli_mode()
     else:
         run_gtk_mode()

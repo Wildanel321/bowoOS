@@ -12,9 +12,10 @@ if [ -f /etc/lite-profile ]; then
     . /etc/lite-profile
 fi
 
+TIER="${LITE_TIER:-512m}"
 PROFILE="${LITE_PROFILE:-lite}"
 
-if [ "$PROFILE" = "lite" ] || [ "$TOTAL_RAM_MB" -lt 850 ]; then
+if [ "$TIER" = "512m" ] || [ "$PROFILE" = "lite" ] || [ "$TOTAL_RAM_MB" -lt 850 ]; then
     if which abiword >/dev/null 2>&1; then
         exec abiword "$@"
     elif which libreoffice >/dev/null 2>&1; then

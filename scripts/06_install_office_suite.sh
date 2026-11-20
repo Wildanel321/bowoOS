@@ -7,8 +7,24 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-ROOTFS_DIR="/var/tmp/liteoffice-build/rootfs_x86_64"
-RAW_IMAGE="/var/tmp/liteoffice-build/rootfs_x86_64.raw"
+ARCH="x86_64"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --arch)
+            ARCH="$2"
+            shift 2
+            ;;
+        *)
+            if [[ "$1" != --* ]]; then
+                ARCH="$1"
+            fi
+            shift
+            ;;
+    esac
+done
+
+ROOTFS_DIR="/var/tmp/liteoffice-build/rootfs_${ARCH}"
+RAW_IMAGE="/var/tmp/liteoffice-build/rootfs_${ARCH}.raw"
 
 if [ "$(id -u)" -ne 0 ]; then
     echo "[!] Must run as root (use sudo)." >&2

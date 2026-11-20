@@ -1,0 +1,37 @@
+#!/sbin/openrc-run
+# ==============================================================================
+# LiteOffice OS — systemd-udevd Device Manager Service (OpenRC)
+# Manages dynamic /dev nodes, kernel hardware events, and driver loading.
+# ==============================================================================
+description="Manages dynamic device nodes and kernel uevents"
+
+command="/lib/systemd/systemd-udevd"
+command_args="--daemon"
+pidfile="/run/udev/udev.pid"
+
+depend() {
+    provide dev udev
+    keyword -prefix -vserver -lxc
+}
+
+start_pre() {
+    mkdir -p /run/udev
+    if [ -w /sys/kernel/uevent_helper ]; then
+        echo "" > /sys/kernel/uevent_helper
+    fi
+}
+
+start_post() {
+    ebegin "Triggering udev coldplug events"
+    udevadm trigger --type=subsystems --action=add 2>/dev/null || true
+    udevadm trigger --type=devices --action=add 2>/dev/null || true
+    udevadm settle --timeout=5 2>/dev/null || true
+    eend 0
+}
+
+stop() {
+    ebegin "Stopping systemd-udevd"
+    udevadm control --exit 2>/dev/null || true
+    start-stop-daemon --stop --exec /lib/systemd/systemd-udevd --quiet 2>/dev/null || true
+    eend 0
+}

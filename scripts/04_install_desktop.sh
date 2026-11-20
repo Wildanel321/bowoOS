@@ -102,7 +102,15 @@ apt-get install -y --no-install-recommends \
     fonts-dejavu-core \
     volumeicon-alsa \
     libnotify-bin \
-    xdotool
+    xdotool \
+    firefox-esr \
+    mpv \
+    yt-dlp \
+    mesa-va-drivers \
+    va-driver-all \
+    pulseaudio \
+    pavucontrol \
+    alsa-utils
 
 # Allow non-console users to run Xorg
 mkdir -p /etc/X11

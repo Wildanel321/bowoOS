@@ -6,6 +6,7 @@ description="Initializes compressed RAM swap based on physical hardware capacity
 
 depend() {
     keyword -prefix -vserver
+    after udev
     before bootmisc
 }
 
@@ -26,12 +27,18 @@ start() {
     local zram_size_bytes=$(( zram_size_kb * 1024 ))
     local zram_size_mb=$(( zram_size_kb / 1024 ))
 
-    # 3. Ensure zram module is loaded
+    # 3. Ensure zram module / device is loaded
     if [ ! -e /sys/block/zram0 ]; then
-        modprobe zram 2>/dev/null || true
+        modprobe zram num_devices=1 2>/dev/null || true
     fi
 
-    if [ ! -e /sys/block/zram0 ]; then
+    # Ensure device node /dev/zram0 exists
+    if [ ! -e /dev/zram0 ] && [ -e /sys/block/zram0/dev ]; then
+        local majmin=$(cat /sys/block/zram0/dev | tr ':' ' ')
+        mknod -m 660 /dev/zram0 b $majmin 2>/dev/null || true
+    fi
+
+    if [ ! -e /dev/zram0 ] && [ ! -e /sys/block/zram0 ]; then
         eerror "ZRAM kernel interface /sys/block/zram0 not available"
         eend 1
         return 1
@@ -49,16 +56,25 @@ start() {
     echo "$best_comp" > /sys/block/zram0/comp_algorithm 2>/dev/null || true
 
     # 5. Set disksize & initialize swap
-    echo "$zram_size_bytes" > /sys/block/zram0/disksize
-    mkswap -L "LITE_ZRAM" /dev/zram0 >/dev/null 2>&1
-    swapon -p 100 /dev/zram0
+    echo "$zram_size_bytes" > /sys/block/zram0/disksize 2>/dev/null || true
 
-    # 6. Tune swappiness for maximum ZRAM responsiveness
-    sysctl -q -w vm.swappiness=100
-    sysctl -q -w vm.page-cluster=0
+    # Re-verify device node exists
+    if [ ! -e /dev/zram0 ] && [ -e /sys/block/zram0/dev ]; then
+        local majmin=$(cat /sys/block/zram0/dev | tr ':' ' ')
+        mknod -m 660 /dev/zram0 b $majmin 2>/dev/null || true
+    fi
 
-    einfo "ZRAM swap active: ${zram_size_mb} MB using algorithm [${best_comp}]"
-    eend 0
+    if mkswap -L "LITE_ZRAM" /dev/zram0 >/dev/null 2>&1 && swapon -p 100 /dev/zram0 2>/dev/null; then
+        # 6. Tune swappiness for maximum ZRAM responsiveness
+        sysctl -q -w vm.swappiness=100 2>/dev/null || true
+        sysctl -q -w vm.page-cluster=0 2>/dev/null || true
+        einfo "ZRAM swap active: ${zram_size_mb} MB using algorithm [${best_comp}]"
+        eend 0
+    else
+        eerror "Failed to activate swap on /dev/zram0"
+        eend 1
+        return 1
+    fi
 }
 
 stop() {

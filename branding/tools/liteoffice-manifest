@@ -21,6 +21,13 @@ TARGET_PATHS = [
     "/usr/local/bin/liteoffice-automate",
     "/usr/local/bin/liteoffice-manifest",
     "/usr/local/bin/liteoffice-healthd",
+    "/usr/local/bin/lite-installer",
+    "/usr/local/bin/lite-launch-office",
+    "/usr/local/bin/lite-launch-spreadsheet",
+    "/usr/local/bin/lite-launch-pdf",
+    "/usr/local/bin/lite-logout",
+    "/usr/local/bin/lite-info",
+    "/usr/local/bin/lite-youtube",
     "/etc/init.d/liteoffice-health",
     "/etc/init.d/zram-swap",
     "/etc/init.d/lite-profile-detect",
@@ -116,7 +123,11 @@ def verify_manifest(manifest_path=MANIFEST_PATH):
         sys.exit(1)
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1] == "generate":
+    if len(sys.argv) > 1 and sys.argv[1] in ("--help", "-h", "help"):
+        print("LiteOffice OS Manifest Engine (liteoffice-manifest)")
+        print("Usage: liteoffice-manifest <generate|verify> [path]")
+        sys.exit(0)
+    elif len(sys.argv) > 1 and sys.argv[1] == "generate":
         out = sys.argv[2] if len(sys.argv) > 2 else MANIFEST_PATH
         generate_manifest(out)
     elif len(sys.argv) > 1 and sys.argv[1] == "verify":

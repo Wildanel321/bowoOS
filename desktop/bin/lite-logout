@@ -13,7 +13,7 @@ if which zenity >/dev/null 2>&1; then
         "Reboot" "Restart the computer" \
         "Poweroff" "Completely shut down the computer" \
         "Cancel" "Return to desktop" \
-        --hide-column=0 --print-column=1 2>/dev/null || echo "Cancel")
+        --print-column=1 2>/dev/null || echo "Cancel")
 else
     # Fallback to simple console read if zenity is absent
     echo "1) Logout"

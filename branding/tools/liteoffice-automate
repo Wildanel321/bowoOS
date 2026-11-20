@@ -13,7 +13,6 @@ NC='\033[0m'
 
 STATE_DIR="/var/lib/liteoffice/automate"
 BACKUP_DIR="/var/backups/liteoffice"
-mkdir -p "$STATE_DIR" "$BACKUP_DIR"
 
 STAGE="${1:-}"
 
@@ -29,12 +28,13 @@ print_help() {
     exit 0
 }
 
-if [ -z "$STAGE" ]; then
+if [ -z "$STAGE" ] || [ "$STAGE" = "--help" ] || [ "$STAGE" = "-h" ]; then
     print_help
 fi
 
 case "$STAGE" in
     prepare)
+        mkdir -p "$STATE_DIR"
         echo -e "${BLUE}=== [STAGE 1: PREPARE] System Inspection ===${NC}"
         MEM_MB=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 512)
         DISK_MB=$(df -m / | awk 'NR==2 {print $4}')
@@ -110,6 +110,7 @@ EOF
 
         echo -e "${BLUE}=== [STAGE 3: APPLY] Executing Configuration Plan ===${NC}"
         TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+        mkdir -p "$BACKUP_DIR"
 
         while IFS= read -r line || [ -n "$line" ]; do
             ACTION=$(echo "$line" | cut -d' ' -f2)

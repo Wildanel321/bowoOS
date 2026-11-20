@@ -127,7 +127,8 @@ startup_notifications = 0
 launcher_tooltip = 1
 # Start Menu button triggers Openbox root menu
 launcher_item_app = /usr/share/applications/lite-start-menu.desktop
-launcher_item_app = /usr/share/applications/liteoffice-welcome.desktop
+launcher_item_app = /usr/share/applications/Web-Browser.desktop
+launcher_item_app = /usr/share/applications/Word-Processor.desktop
 launcher_item_app = /usr/share/applications/pcmanfm.desktop
 launcher_item_app = /usr/share/applications/liteoffice-control-center.desktop
 launcher_item_app = /usr/share/applications/liteoffice-monitor.desktop

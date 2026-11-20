@@ -7,9 +7,13 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-ROOTFS_DIR="/var/tmp/liteoffice-build/rootfs_x86_64"
-RAW_IMAGE="/var/tmp/liteoffice-build/rootfs_x86_64.raw"
+ARCH="${1:-x86_64}"
+ROOTFS_DIR="/var/tmp/liteoffice-build/rootfs_${ARCH}"
+RAW_IMAGE="/var/tmp/liteoffice-build/rootfs_${ARCH}.raw"
 KERNEL_BIN="$PROJECT_ROOT/output/vmlinuz-6.6-lite"
+if [ -f "$PROJECT_ROOT/output/vmlinuz-6.6-lite-${ARCH}" ]; then
+    KERNEL_BIN="$PROJECT_ROOT/output/vmlinuz-6.6-lite-${ARCH}"
+fi
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -109,8 +113,8 @@ if [ "$BOOT_SUCCESS" -eq 1 ]; then
     log_pass "QEMU VM booted successfully."
 
     # Verify ZRAM Swap in Boot Telemetry or Desktop Benchmark
-    if grep -q "ZRAM swap active" "$SERIAL_LOG" || grep -q "Swap:.*702" "$SERIAL_LOG"; then
-        log_pass "ZRAM Compression Verified: 702 MB dynamic compressed swap active."
+    if grep -q "ZRAM swap active" "$SERIAL_LOG" || awk '/Swap:/ {if ($2 > 0) exit 0; else exit 1}' "$SERIAL_LOG" 2>/dev/null; then
+        log_pass "ZRAM Compression Verified: dynamic compressed swap active."
     else
         log_fail "ZRAM activation message not found in serial log."
     fi

@@ -14,8 +14,12 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 RAM="${1:-512M}"
+ARCH="${ARCH:-x86_64}"
 KERNEL="${PROJECT_ROOT}/output/vmlinuz-6.6-lite"
-INITRD="${PROJECT_ROOT}/output/initramfs-x86_64.img"
+if [ -f "${PROJECT_ROOT}/output/vmlinuz-6.6-lite-${ARCH}" ]; then
+    KERNEL="${PROJECT_ROOT}/output/vmlinuz-6.6-lite-${ARCH}"
+fi
+INITRD="${PROJECT_ROOT}/output/initramfs-${ARCH}.img"
 LOG_FILE="${PROJECT_ROOT}/output/qemu_early_boot_${RAM}.log"
 
 echo -e "${BLUE}==============================================================================${NC}"
@@ -64,7 +68,7 @@ QEMU_PID=$!
 BOOTED=0
 for i in $(seq 1 30); do
     sleep 1
-    if grep -q "Lite Office OS — Early Userspace Bootloader" "$LOG_FILE" 2>/dev/null; then
+    if grep -Eq "(LiteOffice|Lite Office) OS.*Early Userspace Bootloader" "$LOG_FILE" 2>/dev/null; then
         BOOTED=1
         break
     fi
@@ -104,7 +108,7 @@ if grep -q "Memory:" "$LOG_FILE" || grep -q "Detected Memory" "$LOG_FILE"; then
 fi
 
 # 4. Check for Initramfs userspace execution
-if grep -q "Lite Office OS — Early Userspace Bootloader" "$LOG_FILE"; then
+if grep -Eq "(LiteOffice|Lite Office) OS.*Early Userspace Bootloader" "$LOG_FILE"; then
     echo -e "    - Initramfs Run: ${GREEN}PASS (Early Userspace initialized and executed successfully!)${NC}"
 else
     echo -e "    - Initramfs Run: ${RED}FAIL (Early userspace banner not observed in log)${NC}"

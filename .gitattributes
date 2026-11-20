@@ -1,0 +1,32 @@
+# Set default behavior to use LF line endings for all text files
+* text=auto eol=lf
+
+# Explicitly declare text files you want to always be LF
+*.sh text eol=lf
+*.py text eol=lf
+*.conf text eol=lf
+*.json text eol=lf
+*.desktop text eol=lf
+*.xml text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+Makefile text eol=lf
+
+# Explicitly declare binary files to prevent CRLF/LF corruption
+*.iso binary
+*.img binary
+*.bin binary
+*.raw binary
+*.vmdk binary
+*.squashfs binary
+vmlinuz* binary
+bzImage binary
+*.gz binary
+*.xz binary
+*.zst binary
+*.tar* binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.svg text eol=lf

@@ -5,8 +5,8 @@
 set -eu
 
 KERNEL=$(uname -sr)
-UPTIME=$(uptime -p 2>/dev/null || uptime)
-MEM_INFO=$(free -m)
+UPTIME=$(uptime -p 2>/dev/null || uptime 2>/dev/null || echo "Unknown uptime")
+MEM_INFO=$(free -m 2>/dev/null || echo "Memory statistics unavailable")
 SWAP_INFO=$(cat /proc/swaps 2>/dev/null || echo "No swap")
 
 TIER="Unknown"

@@ -8,9 +8,13 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-ROOTFS_DIR="/var/tmp/liteoffice-build/rootfs_x86_64"
-RAW_IMAGE="/var/tmp/liteoffice-build/rootfs_x86_64.raw"
+ARCH="${1:-x86_64}"
+ROOTFS_DIR="/var/tmp/liteoffice-build/rootfs_${ARCH}"
+RAW_IMAGE="/var/tmp/liteoffice-build/rootfs_${ARCH}.raw"
 KERNEL_BIN="$PROJECT_ROOT/output/vmlinuz-6.6-lite"
+if [ -f "$PROJECT_ROOT/output/vmlinuz-6.6-lite-${ARCH}" ]; then
+    KERNEL_BIN="$PROJECT_ROOT/output/vmlinuz-6.6-lite-${ARCH}"
+fi
 TEST_LOG="/tmp/liteoffice_test_suite.log"
 
 RED='\033[0;31m'

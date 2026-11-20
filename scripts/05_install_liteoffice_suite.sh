@@ -7,8 +7,24 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-ROOTFS_DIR="/var/tmp/liteoffice-build/rootfs_x86_64"
-RAW_IMAGE="/var/tmp/liteoffice-build/rootfs_x86_64.raw"
+ARCH="x86_64"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --arch)
+            ARCH="$2"
+            shift 2
+            ;;
+        *)
+            if [[ "$1" != --* ]]; then
+                ARCH="$1"
+            fi
+            shift
+            ;;
+    esac
+done
+
+ROOTFS_DIR="/var/tmp/liteoffice-build/rootfs_${ARCH}"
+RAW_IMAGE="/var/tmp/liteoffice-build/rootfs_${ARCH}.raw"
 
 if [ "$(id -u)" -ne 0 ]; then
     echo "[!] Must run as root (use sudo)." >&2
@@ -48,11 +64,19 @@ mount -t sysfs sysfs "$ROOTFS_DIR/sys"
 cp /etc/resolv.conf "$ROOTFS_DIR/etc/resolv.conf"
 
 echo "[*] Installing native GUI runtimes, plymouth splash, and hardware utilities..."
-chroot "$ROOTFS_DIR" dpkg --purge --force-depends dbus-user-session libpam-systemd systemd-sysv 2>/dev/null || true
 chroot "$ROOTFS_DIR" apt-get update -y
-DEBIAN_FRONTEND=noninteractive chroot "$ROOTFS_DIR" apt-get install -y --no-install-recommends \
+
+EXTRA_PKGS=()
+if [ "$ARCH" = "i686" ]; then
+    EXTRA_PKGS+=("grub-efi-ia32-bin")
+else
+    EXTRA_PKGS+=("grub-efi-amd64-bin")
+fi
+
+DEBIAN_FRONTEND=noninteractive chroot "$ROOTFS_DIR" apt-get install -y \
     dbus-x11 \
     python3-gi \
+    python3-gi-cairo \
     gir1.2-gtk-3.0 \
     plymouth \
     plymouth-themes \
@@ -60,7 +84,16 @@ DEBIAN_FRONTEND=noninteractive chroot "$ROOTFS_DIR" apt-get install -y --no-inst
     usbutils \
     iproute2 \
     procps \
-    psmisc
+    psmisc \
+    parted \
+    dosfstools \
+    rsync \
+    htop \
+    arandr \
+    grub-common \
+    grub-pc-bin \
+    grub2-common \
+    "${EXTRA_PKGS[@]}"
 
 # Ensure systemd-sysv does not hijack OpenRC init
 chroot "$ROOTFS_DIR" dpkg --purge --force-depends systemd-sysv libpam-systemd dbus-user-session 2>/dev/null || true
@@ -122,6 +155,15 @@ if [ -f "$PROJECT_ROOT/branding/logo/liteoffice-icon-48.png" ]; then
     cp "$PROJECT_ROOT/branding/logo/liteoffice-icon-48.png" "$ROOTFS_DIR/usr/share/pixmaps/liteoffice.png"
     cp "$PROJECT_ROOT/branding/logo/liteoffice-icon-48.png" "$ROOTFS_DIR/usr/share/icons/hicolor/48x48/apps/liteoffice.png"
 fi
+if [ -f "$PROJECT_ROOT/branding/logo/liteoffice-logo.png" ]; then
+    cp "$PROJECT_ROOT/branding/logo/liteoffice-logo.png" "$ROOTFS_DIR/usr/share/pixmaps/liteoffice-logo.png"
+    cp "$PROJECT_ROOT/branding/logo/liteoffice-logo.png" "$ICON_BASE/liteoffice-logo.png"
+fi
+for size in 16 24 32 48 64 128 256 512; do
+    if [ -f "$PROJECT_ROOT/branding/logo/liteoffice-icon-${size}.png" ]; then
+        cp "$PROJECT_ROOT/branding/logo/liteoffice-icon-${size}.png" "$ICON_BASE/liteoffice-icon-${size}.png"
+    fi
+done
 
 # Icon theme descriptor
 cat << 'EOF' > "$ICON_BASE/index.theme"
@@ -217,20 +259,30 @@ cp "$PROJECT_ROOT/branding/tools/liteoffice-pkg" "$ROOTFS_DIR/usr/local/bin/lite
 cp "$PROJECT_ROOT/branding/tools/liteoffice-automate" "$ROOTFS_DIR/usr/local/bin/liteoffice-automate"
 cp "$PROJECT_ROOT/branding/tools/liteoffice-manifest" "$ROOTFS_DIR/usr/local/bin/liteoffice-manifest"
 cp "$PROJECT_ROOT/branding/tools/liteoffice-security" "$ROOTFS_DIR/usr/local/bin/liteoffice-security"
+cp "$PROJECT_ROOT/installer/lite-installer.sh" "$ROOTFS_DIR/usr/local/bin/lite-installer"
+cp "$PROJECT_ROOT/installer/liteoffice-installer.py" "$ROOTFS_DIR/usr/local/bin/liteoffice-installer"
+cp "$PROJECT_ROOT/desktop/bin/lite-youtube" "$ROOTFS_DIR/usr/local/bin/lite-youtube"
 chmod 755 "$ROOTFS_DIR/usr/local/bin/liteoffice-pkg" \
           "$ROOTFS_DIR/usr/local/bin/liteoffice-automate" \
           "$ROOTFS_DIR/usr/local/bin/liteoffice-manifest" \
-          "$ROOTFS_DIR/usr/local/bin/liteoffice-security"
+          "$ROOTFS_DIR/usr/local/bin/liteoffice-security" \
+          "$ROOTFS_DIR/usr/local/bin/lite-installer" \
+          "$ROOTFS_DIR/usr/local/bin/liteoffice-installer" \
+          "$ROOTFS_DIR/usr/local/bin/lite-youtube"
 
 # Desktop Entries
 DESKTOP_APPS="$ROOTFS_DIR/usr/share/applications"
 mkdir -p "$DESKTOP_APPS"
 cp "$PROJECT_ROOT/branding/apps/"*.desktop "$DESKTOP_APPS/"
-chmod 644 "$DESKTOP_APPS/liteoffice-"*.desktop
+cp "$PROJECT_ROOT/installer/liteoffice-installer.desktop" "$DESKTOP_APPS/liteoffice-installer.desktop"
+cp "$PROJECT_ROOT/desktop/assets/Web-Browser.desktop" "$DESKTOP_APPS/Web-Browser.desktop"
+cp "$PROJECT_ROOT/desktop/assets/YouTube.desktop" "$DESKTOP_APPS/YouTube.desktop"
+chmod 644 "$DESKTOP_APPS/"*.desktop
 
 # System Health Daemon and OpenRC Init Service
 cp "$PROJECT_ROOT/branding/services/liteoffice-healthd" "$ROOTFS_DIR/usr/local/bin/liteoffice-healthd"
 chmod 755 "$ROOTFS_DIR/usr/local/bin/liteoffice-healthd"
+ln -sf liteoffice-healthd "$ROOTFS_DIR/usr/local/bin/liteoffice-health"
 
 cp "$PROJECT_ROOT/branding/services/init.d/liteoffice-health" "$ROOTFS_DIR/etc/init.d/liteoffice-health"
 chmod 755 "$ROOTFS_DIR/etc/init.d/liteoffice-health"
@@ -302,8 +354,11 @@ EOF
     cp "$PROJECT_ROOT/branding/apps/liteoffice-control-center.desktop" "$target_dir/Desktop/"
     cp "$PROJECT_ROOT/branding/apps/liteoffice-monitor.desktop" "$target_dir/Desktop/"
     cp "$PROJECT_ROOT/branding/apps/liteoffice-about.desktop" "$target_dir/Desktop/"
+    cp "$PROJECT_ROOT/installer/liteoffice-installer.desktop" "$target_dir/Desktop/"
     cp "$PROJECT_ROOT/desktop/assets/Word-Processor.desktop" "$target_dir/Desktop/"
     cp "$PROJECT_ROOT/desktop/assets/Spreadsheet.desktop" "$target_dir/Desktop/"
+    cp "$PROJECT_ROOT/desktop/assets/Web-Browser.desktop" "$target_dir/Desktop/"
+    cp "$PROJECT_ROOT/desktop/assets/YouTube.desktop" "$target_dir/Desktop/"
     cp "$PROJECT_ROOT/desktop/assets/File-Manager.desktop" "$target_dir/Desktop/"
     cp "$PROJECT_ROOT/desktop/assets/Terminal.desktop" "$target_dir/Desktop/"
     chmod 755 "$target_dir/Desktop/"*.desktop
@@ -312,6 +367,21 @@ EOF
 populate_profile "$ROOTFS_DIR/etc/skel"
 populate_profile "$ROOTFS_DIR/home/liteuser" true
 chown -R 1000:1000 "$ROOTFS_DIR/home/liteuser"
+
+# Firefox ESR low-memory and hardware video acceleration profile
+mkdir -p "$ROOTFS_DIR/etc/firefox-esr"
+cat << 'EOF' > "$ROOTFS_DIR/etc/firefox-esr/syspref.js"
+// LiteOffice OS — Firefox ESR Low-Memory & Hardware Video Acceleration Profile
+// Tuned for 2-Core / 2 GB RAM Mini PCs
+pref("dom.ipc.processCount", 2);
+pref("media.ffmpeg.vaapi.enabled", true);
+pref("media.hardware-video-decoding.enabled", true);
+pref("widget.dmabuf.vaapi.enabled", true);
+pref("media.av1.enabled", false);
+pref("browser.cache.memory.capacity", 65536);
+pref("browser.tabs.unloadOnLowMemory", true);
+pref("accessibility.force_disabled", 1);
+EOF
 
 # Update system-wide XDG defaults
 mkdir -p "$ROOTFS_DIR/etc/xdg/tint2"

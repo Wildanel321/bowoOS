@@ -8,11 +8,29 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-ARCH="${1:-x86_64}"
+ARCH="x86_64"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --arch)
+            ARCH="$2"
+            shift 2
+            ;;
+        *)
+            if [[ "$1" != --* ]]; then
+                ARCH="$1"
+            fi
+            shift
+            ;;
+    esac
+done
+
 ROOTFS_DIR="/var/tmp/liteoffice-build/rootfs_${ARCH}"
-KERNEL_BIN="$PROJECT_ROOT/output/vmlinuz-6.6-lite"
-INITRAMFS_IMG="$PROJECT_ROOT/output/initramfs-${ARCH}.img"
 OUTPUT_DIR="$PROJECT_ROOT/output"
+KERNEL_BIN="$OUTPUT_DIR/vmlinuz-6.6-lite"
+if [ -f "$OUTPUT_DIR/vmlinuz-6.6-lite-${ARCH}" ]; then
+    KERNEL_BIN="$OUTPUT_DIR/vmlinuz-6.6-lite-${ARCH}"
+fi
+INITRAMFS_IMG="$OUTPUT_DIR/initramfs-${ARCH}.img"
 OUTPUT_ISO="$OUTPUT_DIR/liteoffice-1.0-${ARCH}.iso"
 
 ISO_TREE="/var/tmp/liteoffice-build/iso_tree_${ARCH}"

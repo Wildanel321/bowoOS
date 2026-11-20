@@ -11,24 +11,26 @@ ARCH="x86_64"
 STAGE="all"
 
 usage() {
+    local exit_code="${1:-0}"
     cat <<EOF
 Usage: $0 [OPTIONS]
 
 Options:
   --arch <x86_64|i686>     Target system architecture (default: x86_64)
-  --stage <1..8|all>       Execute specific build stage:
-                             1: Host Validation
+  --stage <1..8|all|test>  Execute specific build stage:
+                             1: Host Environment Validation
                              2: Kernel & Initramfs Build
-                             3: Rootfs Assembly
-                             4: Desktop Integration
-                             5: Office Suite Setup
-                             6: RAM Optimization Services
-                             7: Live ISO Generation
-                             8: QEMU Automated Verification
-                             all: Execute entire pipeline
+                             3: Base Rootfs Assembly
+                             4: Desktop Integration (Xorg + Openbox + Tint2)
+                             5: LiteOffice Branding, Apps & Services
+                             6: Office Suite & Printing Stack
+                             7: RAM Optimization & Memory Daemons
+                             8: Bootable Hybrid Live ISO Generation
+                             all: Execute complete build pipeline (Stages 1-8)
+                             test: Run comprehensive automated test suites
   --help                   Display this help message
 EOF
-    exit 1
+    exit "$exit_code"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -42,11 +44,11 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --help)
-            usage
+            usage 0
             ;;
         *)
             echo "Unknown option: $1"
-            usage
+            usage 1
             ;;
     esac
 done
@@ -65,22 +67,36 @@ case "$STAGE" in
     3)
         bash scripts/03_assemble_rootfs.sh --arch "$ARCH"
         ;;
-    4|5|6)
-        echo "[*] Running sub-stages 4-6 within rootfs assembly..."
-        bash scripts/03_assemble_rootfs.sh --arch "$ARCH"
+    4)
+        bash scripts/04_install_desktop.sh --arch "$ARCH"
+        ;;
+    5)
+        bash scripts/05_install_liteoffice_suite.sh --arch "$ARCH"
+        ;;
+    6)
+        bash scripts/06_install_office_suite.sh --arch "$ARCH"
         ;;
     7)
-        bash scripts/04_generate_iso.sh --arch "$ARCH"
+        bash scripts/07_optimize_memory.sh --arch "$ARCH"
         ;;
     8)
-        bash scripts/05_qemu_test.sh --ram 512M --iso "output/LiteOffice-${ARCH}.iso"
+        bash scripts/08_generate_iso.sh --arch "$ARCH"
         ;;
     all)
         bash scripts/01_host_check.sh
         bash scripts/02_build_kernel.sh --arch "$ARCH"
         bash scripts/03_assemble_rootfs.sh --arch "$ARCH"
-        bash scripts/04_generate_iso.sh --arch "$ARCH"
-        bash scripts/05_qemu_test.sh --ram 512M --iso "output/LiteOffice-${ARCH}.iso"
+        bash scripts/04_install_desktop.sh --arch "$ARCH"
+        bash scripts/05_install_liteoffice_suite.sh --arch "$ARCH"
+        bash scripts/06_install_office_suite.sh --arch "$ARCH"
+        bash scripts/07_optimize_memory.sh --arch "$ARCH"
+        bash scripts/08_generate_iso.sh --arch "$ARCH"
+        ;;
+    test)
+        bash tests/test_liteoffice_suite.sh "$ARCH"
+        bash tests/test_office_suite.sh "$ARCH"
+        bash tests/test_memory_optimization.sh "$ARCH"
+        bash tests/test_live_iso.sh "$ARCH"
         ;;
     *)
         echo "Error: Invalid stage '$STAGE'"

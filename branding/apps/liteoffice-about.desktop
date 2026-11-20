@@ -3,6 +3,6 @@ Type=Application
 Name=About LiteOffice OS
 Comment=View system specifications, hardware, and release information
 Exec=/usr/local/bin/liteoffice-about
-Icon=liteoffice-logo
+Icon=liteoffice
 Terminal=false
 Categories=System;Settings;

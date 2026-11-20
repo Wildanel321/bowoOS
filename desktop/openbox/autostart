@@ -39,6 +39,9 @@ if [ "${DESKTOP_COMPOSITING:-none}" = "picom" ] && which picom >/dev/null 2>&1; 
 fi
 
 # 8. Automated Desktop Benchmark & Status Telemetry
+if [ -x "$HOME/.config/openbox/bench_hook.sh" ]; then
+    "$HOME/.config/openbox/bench_hook.sh" &
+fi
 BENCH_OUT="$HOME/desktop_benchmark.log"
 {
     echo "=== LITE OFFICE OS DESKTOP BENCHMARK ==="
@@ -49,12 +52,19 @@ BENCH_OUT="$HOME/desktop_benchmark.log"
 } > "$BENCH_OUT" 2>&1
 
 # Broadcast to console / ttyS0 / kmsg
-if [ -w /dev/ttyS0 ]; then
-    cat "$BENCH_OUT" > /dev/ttyS0 2>/dev/null || true
-fi
+for ttydev in /dev/ttyS0 /dev/console /dev/tty1; do
+    if [ -w "$ttydev" ]; then
+        cat "$BENCH_OUT" > "$ttydev" 2>/dev/null || true
+    fi
+done
 if [ -w /dev/kmsg ]; then
     while IFS= read -r line; do
         echo "<6>LITE_BENCH: $line" > /dev/kmsg 2>/dev/null || true
     done < "$BENCH_OUT"
+fi
+
+# 9. Handle direct system installation boot parameter
+if grep -q "lite_install=1" /proc/cmdline 2>/dev/null; then
+    sudo -E /usr/local/bin/liteoffice-installer &
 fi
 

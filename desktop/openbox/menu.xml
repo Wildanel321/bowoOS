@@ -33,6 +33,24 @@
     </item>
   </menu>
 
+  <menu id="apps-internet" label="Internet &amp; Multimedia">
+    <item label="Web Browser (Firefox ESR)">
+      <action name="Execute">
+        <command>firefox-esr</command>
+      </action>
+    </item>
+    <item label="YouTube Player &amp; Hub">
+      <action name="Execute">
+        <command>/usr/local/bin/lite-youtube</command>
+      </action>
+    </item>
+    <item label="MPV Media Player (Hardware Accel)">
+      <action name="Execute">
+        <command>mpv --player-operation-mode=pseudo-gui</command>
+      </action>
+    </item>
+  </menu>
+
   <menu id="apps-accessories" label="Accessories">
     <item label="File Manager (PCManFM)">
       <action name="Execute">
@@ -110,6 +128,7 @@
     </item>
     <separator label="Applications"/>
     <menu id="apps-office"/>
+    <menu id="apps-internet"/>
     <menu id="apps-accessories"/>
     <menu id="apps-system"/>
     <menu id="apps-preferences"/>

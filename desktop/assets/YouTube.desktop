@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=YouTube
+Comment=Watch YouTube Videos (Hardware Accelerated for 2-Core / 2GB Mini PC)
+Exec=/usr/local/bin/lite-youtube %U
+Icon=video-x-generic
+Terminal=false
+Categories=Network;AudioVideo;Video;
+MimeType=x-scheme-handler/vnd.youtube;

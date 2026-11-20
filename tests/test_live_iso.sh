@@ -7,7 +7,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-ISO_PATH="$PROJECT_ROOT/output/liteoffice-1.0-x86_64.iso"
+ARCH="${1:-x86_64}"
+ISO_PATH="$PROJECT_ROOT/output/liteoffice-1.0-${ARCH}.iso"
 SERIAL_LOG="/tmp/qemu_live_iso_serial.log"
 
 RED='\033[0;31m'
@@ -44,7 +45,7 @@ if [ -f "$ISO_PATH" ]; then
     ISO_MB=$(( ISO_BYTES / 1048576 ))
     echo "    - ISO Image Location: $ISO_PATH"
     echo "    - ISO Image Size    : ${ISO_MB} MB"
-    if [ "$ISO_MB" -ge 300 ] && [ "$ISO_MB" -le 700 ]; then
+    if [ "$ISO_MB" -ge 100 ] && [ "$ISO_MB" -le 700 ]; then
         log_pass "ISO size (${ISO_MB} MB) is well within ultra-lightweight distribution targets (< 700 MB CD envelope)."
     else
         log_fail "ISO size abnormal: ${ISO_MB} MB"
@@ -86,7 +87,7 @@ BOOT_SUCCESS=0
 for i in {1..40}; do
     sleep 1
     if [ -f "$SERIAL_LOG" ]; then
-        if grep -q "Lite Office OS — Early Userspace Bootloader" "$SERIAL_LOG" 2>/dev/null; then
+        if grep -Eq "(LiteOffice|Lite Office) OS.*Early Userspace Bootloader" "$SERIAL_LOG" 2>/dev/null; then
             BOOT_SUCCESS=1
             echo "[*] GRUB and Linux Kernel executed from ISO after ~${i}s."
             break

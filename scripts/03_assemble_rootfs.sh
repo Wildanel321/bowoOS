@@ -106,7 +106,7 @@ export DEBIAN_FRONTEND=noninteractive
 # Update package lists
 apt-get update
 
-# Install OpenRC, SysVInit tools, udev, networking, sudo, earlyoom
+# Install OpenRC, SysVInit tools, udev, networking, sudo, earlyoom, and system tools
 apt-get install -y --no-install-recommends \
     openrc \
     sysvinit-utils \
@@ -121,16 +121,20 @@ apt-get install -y --no-install-recommends \
     pciutils \
     usbutils \
     nano \
-    less
+    less \
+    parted \
+    dosfstools \
+    rsync \
+    htop
 
 # Ensure essential groups exist
-for grp in sudo video audio plugdev input netdev; do
+for grp in sudo video audio plugdev input netdev dialout render tty lp lpadmin; do
     groupadd -f "$grp"
 done
 
 # Create default unprivileged desktop user 'liteuser'
 if ! id liteuser >/dev/null 2>&1; then
-    useradd -m -s /bin/bash -G sudo,video,audio,plugdev,input,netdev liteuser
+    useradd -m -s /bin/bash -G sudo,video,audio,plugdev,input,netdev,dialout,render,tty,lp,lpadmin liteuser
     echo "liteuser:liteuser" | chpasswd
     echo "root:liteoffice" | chpasswd
     echo "liteuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/99-liteuser

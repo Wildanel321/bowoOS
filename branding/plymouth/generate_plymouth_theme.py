@@ -3,6 +3,7 @@
 
 import math
 import os
+import shutil
 import subprocess
 
 THEME_DIR = os.path.join(os.path.dirname(__file__), "liteoffice")
@@ -97,7 +98,7 @@ for frame in range(12):
     
     # Also save as progress-*.png for maximum compatibility with both two-step and spinner modes
     progress_png = os.path.join(THEME_DIR, f"progress-{frame:02d}.png")
-    subprocess.run(["cp", throbber_png, progress_png], check=True)
+    shutil.copyfile(throbber_png, progress_png)
     
     os.remove(frame_svg)
 

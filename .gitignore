@@ -7,6 +7,10 @@ iso_root/
 *.qcow2
 *.squashfs
 
+# Python caches
+__pycache__/
+*.pyc
+
 # Temporary files
 /var/tmp/
 /tmp/

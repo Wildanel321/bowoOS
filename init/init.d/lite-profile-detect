@@ -19,6 +19,7 @@ start() {
         # Tier 512 MB
         cat << 'EOF' > "$profile_file"
 LITE_TIER="512m"
+LITE_PROFILE="lite"
 DEFAULT_OFFICE="abiword"
 DEFAULT_SPREADSHEET="gnumeric"
 DEFAULT_PDF="qpdfview"
@@ -30,6 +31,7 @@ EOF
         # Tier 1 GB
         cat << 'EOF' > "$profile_file"
 LITE_TIER="1g"
+LITE_PROFILE="standard"
 DEFAULT_OFFICE="libreoffice --writer"
 DEFAULT_SPREADSHEET="libreoffice --calc"
 DEFAULT_PDF="qpdfview"
@@ -41,6 +43,7 @@ EOF
         # Tier 2 GB+
         cat << 'EOF' > "$profile_file"
 LITE_TIER="2g"
+LITE_PROFILE="performance"
 DEFAULT_OFFICE="libreoffice --writer"
 DEFAULT_SPREADSHEET="libreoffice --calc"
 DEFAULT_PDF="qpdfview"
